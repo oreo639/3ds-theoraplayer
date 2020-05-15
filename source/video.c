@@ -210,7 +210,7 @@ int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callback
 		ctx->tdec = th_decode_alloc(&ctx->tinfo, tsetup);
 
 		// Set library post processing level.
-		//th_decode_ctl(ctx->tdec, TH_DECCTL_GET_PPLEVEL_MAX, &ctx->pp_level_max, sizeof(ctx->pp_level_max));
+		th_decode_ctl(ctx->tdec, TH_DECCTL_GET_PPLEVEL_MAX, &ctx->pp_level_max, sizeof(ctx->pp_level_max));
 		ctx->pp_level = ctx->pp_level_max;
 		th_decode_ctl(ctx->tdec, TH_DECCTL_SET_PPLEVEL, &ctx->pp_level, sizeof(ctx->pp_level));
 	}

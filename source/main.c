@@ -14,7 +14,6 @@ Thread thread = NULL;
 static size_t buffSize = 9 * 4096;
 static ndspWaveBuf waveBuf[2];
 int16_t* audioBuffer;
-bool cur_wvbuf = false;
 
 int run = true;
 
@@ -78,24 +77,25 @@ void videoDecode_thread(void* nul) {
 
 		bool newframe = THEORA_readvideo(&vidCtx);
 
-		ndspWaveBuf *buf = &waveBuf[cur_wvbuf];
+		for (int cur_wvbuf = 0; cur_wvbuf < 2; cur_wvbuf++) {
+			ndspWaveBuf *buf = &waveBuf[cur_wvbuf];
 
-		if(buf->status == NDSP_WBUF_DONE)
-		{
-			size_t read = THEORA_readaudio(&vidCtx, buf->data_pcm16, buffSize);
-			if(read <= 0)
+			if(buf->status == NDSP_WBUF_DONE)
 			{
-				return;
+				size_t read = THEORA_readaudio(&vidCtx, buf->data_pcm16, buffSize);
+				if(read <= 0)
+				{
+					return;
+				}
+				else if(read <= buffSize)
+					buf->nsamples = read / ainfo->channels;
+
+				//printf("Thing happened %d.\n", buf->nsamples);
+
+				ndspChnWaveBufAdd(0, buf);
 			}
-			else if(read <= buffSize)
-				buf->nsamples = read / ainfo->channels;
-
-			//printf("Thing happened %d.\n", buf->nsamples);
-
-			ndspChnWaveBufAdd(0, buf);
+			DSP_FlushDataCache(buf->data_pcm16, buffSize * sizeof(int16_t));
 		}
-		DSP_FlushDataCache(buf->data_pcm16, buffSize * sizeof(int16_t));
-		cur_wvbuf = !cur_wvbuf;
 
 		if (newframe)
 		{
@@ -150,7 +150,7 @@ static void changeFile(char* filepath) {
 int main(int argc, char* argv[]) {
 //---------------------------------------------------------------------------------
 	//char *filename = "sdmc:/test.ogv";
-	char *filename = "sdmc:/videos/scdintro.ogv";
+	char *filename = "sdmc:/videos/A_Digital_Media_Primer_For_Geeks-240p.ogv";
 
 	romfsInit();
 	ndspInit();
