@@ -41,22 +41,15 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	convSettings.input_line_width = info->width;
 	convSettings.input_lines = info->height;
 	convSettings.standard_coefficient = COEFFICIENT_ITU_R_BT_601;
-	if (convSettings.input_lines % 8) {
-		convSettings.input_lines += 8 - (convSettings.input_lines % 8);
-	}
 	switch(info->fmt)
 	{
 		case TH_PF_420:
 			printf(" 4:2:0 video\n");
 			convSettings.input_format = INPUT_YUV420_INDIV_8;
-			//y2y = convSettings.input_line_width * convSettings.input_lines * 1;
-			//y2u = convSettings.input_line_width * convSettings.input_lines / 4 * 1;
 			break;
 		case TH_PF_422:
 			printf(" 4:2:2 video\n");
 			convSettings.input_format = INPUT_YUV422_INDIV_8;
-			//y2y = convSettings.input_line_width * convSettings.input_lines * 1;
-			//y2u = convSettings.input_line_width * convSettings.input_lines / 2 * 1;
 			break;
 		case TH_PF_444:
 			puts("YUV444 is not supported by Y2R");
@@ -115,7 +108,7 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 		Y2RU_SetSendingV(ybr[2].data, ybr[2].stride * ybr[2].height, ybr[2].width, ybr[2].stride - ybr[2].width);
 	}
 
-	Y2RU_SetReceiving((void *)frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt),info->width * 8 * fmtGetBPP(frame->tex->fmt), (Pow2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
+	Y2RU_SetReceiving(frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt), info->width * 8 * fmtGetBPP(frame->tex->fmt), (Pow2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
 	Y2RU_StartConversion();
 	if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out");
 }
