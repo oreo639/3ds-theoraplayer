@@ -108,7 +108,6 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 	if (!frame || !info)
 
 	//svcWaitSynchronization(y2rEvent, 1000 * 1000 * 10);
-	if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out");
 	Y2RU_StopConversion();
 	{
 		Y2RU_SetSendingY(ybr[0].data, ybr[0].stride * ybr[0].height, ybr[0].width, ybr[0].stride - ybr[0].width);
@@ -118,4 +117,5 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 
 	Y2RU_SetReceiving((void *)frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt),info->width * 8 * fmtGetBPP(frame->tex->fmt), (Pow2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
 	Y2RU_StartConversion();
+	if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out");
 }

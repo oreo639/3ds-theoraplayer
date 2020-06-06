@@ -9,7 +9,6 @@
 
 #define VIDEO_DEFAULT_BUFFER_SIZE 4096
 
-ogg_int64_t audiofd_timer_calibrate = -1;
 int audiofd = -1;
 
 static inline int oggGetData(THEORA_Context *ctx)
@@ -87,21 +86,6 @@ static inline ogg_int32_t CLIP_TO_15(ogg_int32_t x)
     return ret;
 }
 
-void pack_samples(ogg_int32_t **pcm, short *buffer, int samples, int channels)
-{
-    int i, j;
-    for (i=0; i<channels; i++)
-    {
-        ogg_int32_t *src = pcm[i];
-        short *dest = buffer + i;
-        for (j=0; j<samples; j++)
-        {
-            *dest = CLIP_TO_15(src[j]>>9);
-            dest += channels;
-        }
-    }
-}
-
 int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callbacks io) {
 	if (!ctx || !datasource)
 		return 1;
@@ -110,6 +94,7 @@ int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callback
 	th_setup_info *tsetup = NULL;
 
 	memset(ctx, '\0', sizeof(THEORA_Context));
+	ctx->audiofd_timer_calibrate = -1;
 	ctx->datasource = datasource;
 	ctx->io = io;
 
@@ -255,7 +240,9 @@ int THEORA_Create(THEORA_Context* ctx, const char* filepath) {
 		(int (*) (void*, ogg_int64_t, int)) fseek,
 		(int (*) (void*)) fclose,
 	};
-	return THEORA_CallbackCreate(ctx, fopen(filepath, "rb"), io);
+	FILE *fp = fopen(filepath, "rb");
+	setvbuf(fp, NULL, _IOFBF, 128*1024);
+	return THEORA_CallbackCreate(ctx, fp, io);
 }
 
 void THEORA_Close(THEORA_Context *ctx)
@@ -331,7 +318,7 @@ void THEORA_reset(THEORA_Context *ctx)
 
 /* get relative time since beginning playback, compensating for A/V
    drift */
-double get_time(){
+double get_time(THEORA_Context *ctx){
   static ogg_int64_t last=0;
   static ogg_int64_t up=0;
   ogg_int64_t now;
@@ -340,19 +327,19 @@ double get_time(){
   gettimeofday(&tv,0);
   now=tv.tv_sec*1000+tv.tv_usec/1000;
 
-  if(audiofd_timer_calibrate==-1)audiofd_timer_calibrate=last=now;
+  if(ctx->audiofd_timer_calibrate==-1)ctx->audiofd_timer_calibrate=last=now;
 
   if(audiofd<0){
     /* no audio timer to worry about, we can just use the system clock */
     /* only one complication: If the process is suspended, we should
        reset timing to account for the gap in play time.  Do it the
        easy/hack way */
-    if(now-last>1000)audiofd_timer_calibrate+=(now-last);
+    if(now-last>1000)ctx->audiofd_timer_calibrate+=(now-last);
     last=now;
   }
 
   if(now-up>200){
-    double timebase=(now-audiofd_timer_calibrate)*.001;
+    double timebase=(now-ctx->audiofd_timer_calibrate)*.001;
     int hundredths=timebase*100-(long)timebase*100;
     int seconds=(long)timebase%60;
     int minutes=((long)timebase/60)%60;
@@ -363,7 +350,7 @@ double get_time(){
     up=now;
   }
 
-  return (now-audiofd_timer_calibrate)*.001;
+  return (now-ctx->audiofd_timer_calibrate)*.001;
 
 }
 
@@ -406,7 +393,7 @@ int THEORA_readvideo(THEORA_Context *ctx)
 			 keyframing.	Soon enough libtheora will be able to deal
 			 with non-keyframe seeks.	*/
 
-			if(ctx->videobuf_time>=get_time())
+			if(ctx->videobuf_time>=get_time(ctx))
 				retval = 1;
 			else{
 				/*If we are too slow, reduce the pp level.*/
@@ -425,7 +412,7 @@ int THEORA_readvideo(THEORA_Context *ctx)
 }
 
 int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
-	if (ctx->videobuf_time<=get_time()) {
+	if (ctx->videobuf_time<=get_time(ctx)) {
 		if (th_decode_ycbcr_out(ctx->tdec, ybr) != 0)
 			return 0; // Uhh?!
 		return 1;
@@ -433,7 +420,7 @@ int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 		struct timeval timeout;
 		double tdiff;
 		long milliseconds;
-		tdiff=ctx->videobuf_time-get_time();
+		tdiff=ctx->videobuf_time-get_time(ctx);
 		/*If we have lots of extra time, increase the post-processing level.*/
 		if(tdiff>ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator){
 			ctx->pp_inc=ctx->pp_level<ctx->pp_level_max?1:0;
@@ -455,7 +442,6 @@ int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 int THEORA_readaudio(THEORA_Context *ctx, int16_t *buffer, int samples)
 {
 	int offset = 0;
-	int chan, frame;
 	ogg_packet packet;
 	ogg_int32_t **pcm = NULL;
 
@@ -465,8 +451,8 @@ int THEORA_readaudio(THEORA_Context *ctx, int16_t *buffer, int samples)
 		if (frames > 0)
 		{
 			/* I bet this beats the crap out of the CPU cache... */
-			for (frame = 0; frame < frames; frame += 1)
-				for (chan = 0; chan < ctx->vinfo.channels; chan += 1)
+			for (int frame = 0; frame < frames; frame += 1)
+				for (int chan = 0; chan < ctx->vinfo.channels; chan += 1)
 				{
 					
 					buffer[offset++] = CLIP_TO_15(pcm[chan][frame]>>9);
