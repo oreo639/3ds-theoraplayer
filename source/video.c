@@ -1,3 +1,16 @@
+#if !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+#if !defined(_LARGEFILE_SOURCE)
+#define _LARGEFILE_SOURCE
+#endif
+#if !defined(_LARGEFILE64_SOURCE)
+#define _LARGEFILE64_SOURCE
+#endif
+#if !defined(_FILE_OFFSET_BITS)
+#define _FILE_OFFSET_BITS 64
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -34,43 +47,25 @@ static inline int oggGetData(THEORA_Context *ctx)
 
 static inline void oggQueuePage(THEORA_Context *ctx)
 {
-	if (ctx->tpackets)
-	{
+	if (ctx->tpackets) {
 		ogg_stream_pagein(&ctx->tstream, &ctx->page);
 	}
-	if (ctx->vpackets)
-	{
+	if (ctx->vpackets) {
 		ogg_stream_pagein(&ctx->vstream, &ctx->page);
 	}
 }
 
-static inline int oggGetNextPacket(THEORA_Context *ctx, ogg_stream_state *stream, ogg_packet *packet) {
+static inline int oggGetNextPacket(THEORA_Context *ctx, ogg_stream_state *stream, ogg_packet *packet)
+{
 	while (ogg_stream_packetout(stream, packet) <= 0)
 	{
 		const int rc = oggGetData(ctx);
-		if (rc == 0)
-		{
+		if (rc <= 0) {
 			ctx->eos = 1;
 			return 0;
 		}
-		else if (rc < 0)
-		{
-			/* If you made it here, something REALLY bad happened.
-			 *
-			 * Unfortunately, ogg_sync_wrote does not give out any
-			 * codes, so I have no idea what that something is.
-			 *
-			 * Be sure you're not doing something nasty like
-			 * accessing one file via multiple threads at one time.
-			 * -flibit
-			 */
-			ctx->eos = 1;
-			return 0;
-		}
-		else
-		{
-			while (ogg_sync_pageout(&ctx->sync, &ctx->page) > 0)
-			{
+		else {
+			while (ogg_sync_pageout(&ctx->sync, &ctx->page) > 0) {
 				oggQueuePage(ctx);
 			}
 		}
@@ -86,14 +81,15 @@ static inline ogg_int32_t CLIP_TO_15(ogg_int32_t x)
     return ret;
 }
 
-int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callbacks io) {
+int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callbacks io)
+{
 	if (!ctx || !datasource)
 		return 1;
 
 	ogg_packet packet;
 	th_setup_info *tsetup = NULL;
 
-	memset(ctx, '\0', sizeof(THEORA_Context));
+	memset(ctx, 0, sizeof(THEORA_Context));
 	ctx->timer_calibrate = -1;
 	ctx->datasource = datasource;
 	ctx->io = io;
@@ -233,12 +229,14 @@ int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callback
 	return 0;
 }
 
-int THEORA_Create(THEORA_Context* ctx, const char* filepath) {
+int THEORA_Create(THEORA_Context* ctx, const char* filepath)
+{
 	THEORA_callbacks io =
 	{
-		(size_t (*) (void*, size_t, size_t, void*)) fread,
-		(int (*) (void*, ogg_int64_t, int)) fseek,
-		(int (*) (void*)) fclose,
+		.read_func = (size_t (*) (void*, size_t, size_t, void*)) fread,
+		.seek_func = (int (*) (void*, ogg_int64_t, int)) fseeko,
+		.close_func = (int (*) (void*)) fclose,
+		.tell_func = (long int (*) (void*)) ftell,
 	};
 	FILE *fp = fopen(filepath, "rb");
 	setvbuf(fp, NULL, _IOFBF, 128*1024);
@@ -287,7 +285,8 @@ bool THEORA_HasAudio(THEORA_Context *ctx)
 	return ctx->vpackets;
 }
 
-THEORA_videoinfo* THEORA_vidinfo(THEORA_Context *ctx) {
+THEORA_videoinfo* THEORA_vidinfo(THEORA_Context *ctx)
+{
 	return &ctx->videoinfo;
 }
 
@@ -318,7 +317,8 @@ void THEORA_reset(THEORA_Context *ctx)
 
 /* get relative time since beginning playback, compensating for A/V
    drift */
-double get_time(THEORA_Context *ctx){
+double get_time(THEORA_Context *ctx)
+{
 	static ogg_int64_t last = 0;
 	static ogg_int64_t up = 0;
 	ogg_int64_t now;
@@ -339,7 +339,7 @@ double get_time(THEORA_Context *ctx){
 
 	last=now;
 
-	if(now-up > 200){
+	if(now-up > 200) {
 		double timebase = (now-ctx->timer_calibrate)*.001;
 		int hundredths  = timebase*100-(long)timebase*100;
 		int seconds     = (long)timebase%60;
@@ -363,11 +363,9 @@ int THEORA_readvideo(THEORA_Context *ctx)
 
 	while (!retval) {
 		// Keep trying to get a usable packet 
-		if (!oggGetNextPacket(ctx, &ctx->tstream, &packet))
-		{
+		if (!oggGetNextPacket(ctx, &ctx->tstream, &packet)) {
 			// ... unless there's nothing left for us to read. 
-			if (retval)
-			{
+			if (retval) {
 				break;
 			}
 			return 0;
@@ -378,7 +376,7 @@ int THEORA_readvideo(THEORA_Context *ctx)
 		To do this right, we should back-track from the last packet on the
 		 page and compute the correct granulepos for the first packet after
 		 a seek or a gap.*/
-		if(ctx->pp_inc){
+		if(ctx->pp_inc) {
 			ctx->pp_level += ctx->pp_inc;
 			th_decode_ctl(ctx->tdec, TH_DECCTL_SET_PPLEVEL, &ctx->pp_level, sizeof(ctx->pp_level));
 			ctx->pp_inc=0;
@@ -420,10 +418,10 @@ int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 		double tdiff;
 		tdiff=ctx->videobuf_time-get_time(ctx);
 		/*If we have lots of extra time, increase the post-processing level.*/
-		if(tdiff>ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator){
+		if(tdiff>ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator) {
 			ctx->pp_inc=ctx->pp_level<ctx->pp_level_max?1:0;
 		}
-		else if(tdiff<ctx->tinfo.fps_denominator*0.05/ctx->tinfo.fps_numerator){
+		else if(tdiff<ctx->tinfo.fps_denominator*0.05/ctx->tinfo.fps_numerator) {
 			ctx->pp_inc=ctx->pp_level>0?-1:0;
 		}
 	}
@@ -439,16 +437,13 @@ int THEORA_readaudio(THEORA_Context *ctx, int16_t *buffer, int samples)
 	while (offset < samples)
 	{
 		const int frames = vorbis_synthesis_pcmout(&ctx->vdsp, &pcm);
-		if (frames > 0)
-		{
+		if (frames > 0) {
 			/* I bet this beats the crap out of the CPU cache... */
 			for (int frame = 0; frame < frames; frame += 1)
-				for (int chan = 0; chan < ctx->vinfo.channels; chan += 1)
-				{
-					
+				for (int chan = 0; chan < ctx->vinfo.channels; chan += 1) {
 					buffer[offset++] = CLIP_TO_15(pcm[chan][frame]>>9);
-					if (offset >= samples)
-					{
+
+					if (offset >= samples) {
 						vorbis_synthesis_read(
 							&ctx->vdsp,
 							frame
@@ -456,24 +451,18 @@ int THEORA_readaudio(THEORA_Context *ctx, int16_t *buffer, int samples)
 						return offset;
 					}
 				}
+
 			vorbis_synthesis_read(&ctx->vdsp, frames);
 		}
-		else /* No audio available left in current packet? */
-		{
+		/* No audio available left in current packet? */
+		else {
 			/* Keep trying to get a usable packet */
-			if (!oggGetNextPacket(ctx, &ctx->vstream, &packet))
-			{
+			if (!oggGetNextPacket(ctx, &ctx->vstream, &packet)) {
 				/* ... unless there's nothing left for us to read. */
 				return offset;
 			}
-			if (vorbis_synthesis(
-				&ctx->vblock,
-				&packet
-			) == 0) {
-				vorbis_synthesis_blockin(
-					&ctx->vdsp,
-					&ctx->vblock
-				);
+			if (vorbis_synthesis(&ctx->vblock, &packet) == 0) {
+				vorbis_synthesis_blockin(&ctx->vdsp, &ctx->vblock);
 			}
 		}
 	}

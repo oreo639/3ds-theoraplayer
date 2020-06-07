@@ -9,7 +9,7 @@
 #include "frame.h"
 #include "explorer.h"
 
-#define WAVEBUFCOUNT 2
+#define WAVEBUFCOUNT 3
 #define	MAX_LIST     28
 
 C2D_Image frame;
@@ -44,8 +44,8 @@ void audioInit(THEORA_audioinfo* ainfo) {
 }
 
 void audioClose(void) {
-	ndspChnReset(0);
 	if (audioBuffer) linearFree(audioBuffer);
+	ndspChnWaveBufClear(0);
 }
 
 void videoDecode_thread(void* nul) {
@@ -117,6 +117,7 @@ void videoDecode_thread(void* nul) {
 
 	frameDelete(&frame);
 	THEORA_Close(&vidCtx);
+	audioClose();
 
 	threadExit(0);
 }

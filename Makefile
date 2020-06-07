@@ -44,10 +44,16 @@ GRAPHICS	:=	gfx
 # options for code generation
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
-
-CFLAGS	:=	-ggdb -Wall -Og -mword-relocations \
+CFLAGS	:=	-Wall -Wextra -mword-relocations \
 			-fomit-frame-pointer -ffunction-sections \
+			-Wno-unused-parameter \
 			$(ARCH)
+
+ifdef RELEASE
+	CFLAGS += -O3 -g
+else
+	CFLAGS += -Og -ggdb
+endif
 
 CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
 
