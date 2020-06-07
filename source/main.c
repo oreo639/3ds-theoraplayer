@@ -44,8 +44,8 @@ void audioInit(THEORA_audioinfo* ainfo) {
 }
 
 void audioClose(void) {
-	if (audioBuffer) linearFree(audioBuffer);
 	ndspChnWaveBufClear(0);
+	if (audioBuffer) linearFree(audioBuffer);
 }
 
 void videoDecode_thread(void* nul) {
@@ -170,6 +170,9 @@ void audioCallback(void *const arg_)
 static void exitThread(void) {
 	isplaying = false;
 
+	if (!vthread && !athread)
+		return;
+
 	threadJoin(vthread, U64_MAX);
 	threadFree(vthread);
 
@@ -181,13 +184,32 @@ static void exitThread(void) {
 	athread = NULL;
 }
 
-static void changeFile(char* filepath) {
+static int isOgg(const char* filepath) {
+	FILE* fp = fopen(filepath, "r");
+	char magic[16];
+
+	if (!fp) {
+		printf("Could not open %s. Please make sure file exists.\n", filepath);
+		return 0;
+	}
+
+	fseek(fp, 0, SEEK_SET);
+	fread(magic, 1, 16, fp);
+	fclose(fp);
+
+	if (!strncmp(magic, "OggS", 4))
+		return 1;
+
+	return 0;
+}
+
+static void changeFile(const char* filepath) {
 	int ret;
 
 	if (vthread != NULL || athread != NULL)
 		exitThread();
 
-	if ((ret = THEORA_Create(&vidCtx, filepath))) {
+	if (isOgg(filepath) && (ret = THEORA_Create(&vidCtx, filepath))) {
 		printf("Video could not be opened.\n");
 		return;
 	}
@@ -207,8 +229,8 @@ static void changeFile(char* filepath) {
 
 	s32 prio;
 	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-	//athread = threadCreate(audioDecode_thread, NULL, 32 * 1024, prio-1, -1, false);
 	vthread = threadCreate(videoDecode_thread, NULL, 32 * 1024, prio-1, -1, false);
+	//athread = threadCreate(audioDecode_thread, NULL, 32 * 1024, prio-1, -1, false);
 }
 
 //---------------------------------------------------------------------------------
