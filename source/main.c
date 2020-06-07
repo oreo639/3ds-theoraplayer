@@ -32,7 +32,7 @@ void audioInit(THEORA_audioinfo* ainfo) {
 	ndspChnSetInterp(0, ainfo->channels == 2 ? NDSP_INTERP_POLYPHASE : NDSP_INTERP_LINEAR);
 	ndspChnSetRate(0, ainfo->rate);
 	ndspChnSetFormat(0, ainfo->channels == 2 ? NDSP_FORMAT_STEREO_PCM16 : NDSP_FORMAT_MONO_PCM16);
-	audioBuffer = linearAlloc((buffSize * sizeof(int16_t)) * 2);
+	audioBuffer = linearAlloc((buffSize * sizeof(int16_t)) * WAVEBUFCOUNT);
 
 	memset(waveBuf, 0, sizeof(waveBuf));
 	for (unsigned i = 0; i < WAVEBUFCOUNT; ++i)
@@ -54,6 +54,9 @@ void videoDecode_thread(void* nul) {
 
 	if (THEORA_HasAudio(&vidCtx))
 		audioInit(ainfo);
+
+	if (THEORA_HasVideo(&vidCtx))
+		frameInit(&frame, vinfo);
 
 	if (THEORA_HasVideo(&vidCtx)) {
 		printf("Ogg stream is Theora %dx%d %.02f fps\n", vinfo->width, vinfo->height, vinfo->fps);
@@ -79,46 +82,51 @@ void videoDecode_thread(void* nul) {
 		if (THEORA_eos(&vidCtx))
 			break;
 
+		bool newframe = false;
+
 		if (THEORA_HasVideo(&vidCtx)) {
 			//__lock_acquire(oggMutex);
-			bool newframe = THEORA_readvideo(&vidCtx);
+			newframe = THEORA_readvideo(&vidCtx);
 			//__lock_release(oggMutex);
+		}
 
-			if (THEORA_HasAudio(&vidCtx)) {
-				for (int cur_wvbuf = 0; cur_wvbuf < WAVEBUFCOUNT; cur_wvbuf++) {
-					ndspWaveBuf *buf = &waveBuf[cur_wvbuf];
+		if (THEORA_HasAudio(&vidCtx)) {
+			for (int cur_wvbuf = 0; cur_wvbuf < WAVEBUFCOUNT; cur_wvbuf++) {
+				ndspWaveBuf *buf = &waveBuf[cur_wvbuf];
 
-					if(buf->status == NDSP_WBUF_DONE) {
-						//__lock_acquire(oggMutex);
-						size_t read = THEORA_readaudio(&vidCtx, buf->data_pcm16, buffSize);
-						//__lock_release(oggMutex);
-						if(read <= 0)
-						{
-							return;
-						}
-						else if(read <= buffSize)
-							buf->nsamples = read / ainfo->channels;
-
-						ndspChnWaveBufAdd(0, buf);
+				if(buf->status == NDSP_WBUF_DONE) {
+					//__lock_acquire(oggMutex);
+					size_t read = THEORA_readaudio(&vidCtx, buf->data_pcm16, buffSize);
+					//__lock_release(oggMutex);
+					if(read <= 0)
+					{
+						return;
 					}
-					DSP_FlushDataCache(buf->data_pcm16, buffSize * sizeof(int16_t));
-				}
-			}
+					else if(read <= buffSize)
+						buf->nsamples = read / ainfo->channels;
 
-			if (newframe) {
-				th_ycbcr_buffer ybr;
-				while (!THEORA_decodevideo(&vidCtx, ybr));
-				frameWrite(&frame, vinfo, ybr);
+					ndspChnWaveBufAdd(0, buf);
+				}
+				DSP_FlushDataCache(buf->data_pcm16, buffSize * sizeof(int16_t));
 			}
+		}
+
+		if (newframe) {
+			th_ycbcr_buffer ybr;
+			while (!THEORA_decodevideo(&vidCtx, ybr));
+			frameWrite(&frame, vinfo, ybr);
 		}
 	}
 
 	printf("frames: %d dropped: %d\n", vidCtx.frames, vidCtx.dropped);
 
-	frameDelete(&frame);
-	THEORA_Close(&vidCtx);
-	audioClose();
+	if (THEORA_HasVideo(&vidCtx))
+		frameDelete(&frame);
 
+	if (THEORA_HasAudio(&vidCtx))
+		audioClose();
+
+	THEORA_Close(&vidCtx);
 	threadExit(0);
 }
 
@@ -204,24 +212,24 @@ static int isOgg(const char* filepath) {
 }
 
 static void changeFile(const char* filepath) {
-	int ret;
+	int ret = 0;
 
 	if (vthread != NULL || athread != NULL)
 		exitThread();
 
-	if (isOgg(filepath) && (ret = THEORA_Create(&vidCtx, filepath))) {
-		printf("Video could not be opened.\n");
+	if (!isOgg(filepath)) {
+		printf("The file is not an ogg file.\n");
+		return;
+	}
+
+	if ((ret = THEORA_Create(&vidCtx, filepath))) {
+		printf("THEORA_Create exited with error, %d.\n", ret);
 		return;
 	}
 
 	if (!THEORA_HasVideo(&vidCtx) && !THEORA_HasAudio(&vidCtx)) {
 		printf("No audio or video stream could be found.\n");
 		return;
-	}
-
-	if (THEORA_HasVideo(&vidCtx)) {
-		THEORA_videoinfo* vinfo = THEORA_vidinfo(&vidCtx);
-		frameInit(&frame, vinfo);
 	}
 
 	printf("Theora Create sucessful.\n");
