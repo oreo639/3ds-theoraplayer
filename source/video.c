@@ -241,7 +241,7 @@ int THEORA_Create(THEORA_Context* ctx, const char* filepath) {
 		(int (*) (void*)) fclose,
 	};
 	FILE *fp = fopen(filepath, "rb");
-	setvbuf(fp, NULL, _IOFBF, 128*1024);
+	setvbuf(fp, NULL, _IOFBF, 64*1024);
 	return THEORA_CallbackCreate(ctx, fp, io);
 }
 
