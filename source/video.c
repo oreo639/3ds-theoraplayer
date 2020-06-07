@@ -94,7 +94,7 @@ int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callback
 	th_setup_info *tsetup = NULL;
 
 	memset(ctx, '\0', sizeof(THEORA_Context));
-	ctx->audiofd_timer_calibrate = -1;
+	ctx->timer_calibrate = -1;
 	ctx->datasource = datasource;
 	ctx->io = io;
 
@@ -241,7 +241,7 @@ int THEORA_Create(THEORA_Context* ctx, const char* filepath) {
 		(int (*) (void*)) fclose,
 	};
 	FILE *fp = fopen(filepath, "rb");
-	setvbuf(fp, NULL, _IOFBF, 64*1024);
+	setvbuf(fp, NULL, _IOFBF, 128*1024);
 	return THEORA_CallbackCreate(ctx, fp, io);
 }
 
@@ -319,39 +319,39 @@ void THEORA_reset(THEORA_Context *ctx)
 /* get relative time since beginning playback, compensating for A/V
    drift */
 double get_time(THEORA_Context *ctx){
-  static ogg_int64_t last=0;
-  static ogg_int64_t up=0;
-  ogg_int64_t now;
-  struct timeval tv;
+	static ogg_int64_t last = 0;
+	static ogg_int64_t up = 0;
+	ogg_int64_t now;
+	struct timeval tv;
 
-  gettimeofday(&tv,0);
-  now=tv.tv_sec*1000+tv.tv_usec/1000;
+	gettimeofday(&tv,0);
+	now = tv.tv_sec*1000+tv.tv_usec/1000;
 
-  if(ctx->audiofd_timer_calibrate==-1)ctx->audiofd_timer_calibrate=last=now;
+	if(ctx->timer_calibrate == -1)
+		ctx->timer_calibrate = last = now;
 
-  if(audiofd<0){
-    /* no audio timer to worry about, we can just use the system clock */
-    /* only one complication: If the process is suspended, we should
-       reset timing to account for the gap in play time.  Do it the
-       easy/hack way */
-    if(now-last>1000)ctx->audiofd_timer_calibrate+=(now-last);
-    last=now;
-  }
+	/* We can just use the system clock as a timer. */
+	/* only one complication: If the process is suspended, we should
+		reset timing to account for the gap in play time.  Do it the
+		easy/hack way */
+	if(now-last > 1000)
+		ctx->timer_calibrate += (now-last);
 
-  if(now-up>200){
-    double timebase=(now-ctx->audiofd_timer_calibrate)*.001;
-    int hundredths=timebase*100-(long)timebase*100;
-    int seconds=(long)timebase%60;
-    int minutes=((long)timebase/60)%60;
-    int hours=(long)timebase/3600;
+	last=now;
 
-    fprintf(stderr,"   Playing: %d:%02d:%02d.%02d                       \r",
-            hours,minutes,seconds,hundredths);
-    up=now;
-  }
+	if(now-up > 200){
+		double timebase = (now-ctx->timer_calibrate)*.001;
+		int hundredths  = timebase*100-(long)timebase*100;
+		int seconds     = (long)timebase%60;
+		int minutes     = ((long)timebase/60)%60;
+		int hours       = (long)timebase/3600;
 
-  return (now-ctx->audiofd_timer_calibrate)*.001;
+		fprintf(stderr,"   Playing: %d:%02d:%02d.%02d\n",
+			hours,minutes,seconds,hundredths);
+		up=now;
+	}
 
+	return (now-ctx->timer_calibrate)*.001;
 }
 
 int THEORA_readvideo(THEORA_Context *ctx)
@@ -417,9 +417,7 @@ int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 			return 0; // Uhh?!
 		return 1;
 	} else {
-		struct timeval timeout;
 		double tdiff;
-		long milliseconds;
 		tdiff=ctx->videobuf_time-get_time(ctx);
 		/*If we have lots of extra time, increase the post-processing level.*/
 		if(tdiff>ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator){
@@ -427,13 +425,6 @@ int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 		}
 		else if(tdiff<ctx->tinfo.fps_denominator*0.05/ctx->tinfo.fps_numerator){
 			ctx->pp_inc=ctx->pp_level>0?-1:0;
-		}
-		milliseconds=tdiff*1000-5;
-		if(milliseconds>500)milliseconds=500;
-		if(milliseconds>0){
-			timeout.tv_sec=milliseconds/1000;
-			timeout.tv_usec=(milliseconds%1000)*1000;
-			//if(n)audio_calibrate_timer(0);
 		}
 	}
 	return 0;

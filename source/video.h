@@ -68,7 +68,7 @@ typedef struct {
 	int frames;
 	int dropped;
 	double videobuf_time;
-	ogg_int64_t audiofd_timer_calibrate;
+	ogg_int64_t timer_calibrate;
 } THEORA_Context;
 
 int THEORA_Create(THEORA_Context* ctx, const char* filepath);
