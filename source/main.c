@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include<unistd.h>
 
 #include <3ds.h>
 #include <citro3d.h>
@@ -79,18 +80,18 @@ void videoDecode_thread(void* nul) {
 			break;
 
 		if (THEORA_HasVideo(&vidCtx)) {
-			__lock_acquire(oggMutex);
+			//__lock_acquire(oggMutex);
 			bool newframe = THEORA_readvideo(&vidCtx);
-			__lock_release(oggMutex);
+			//__lock_release(oggMutex);
 
 			if (THEORA_HasAudio(&vidCtx)) {
 				for (int cur_wvbuf = 0; cur_wvbuf < WAVEBUFCOUNT; cur_wvbuf++) {
 					ndspWaveBuf *buf = &waveBuf[cur_wvbuf];
 
 					if(buf->status == NDSP_WBUF_DONE) {
-						__lock_acquire(oggMutex);
+						//__lock_acquire(oggMutex);
 						size_t read = THEORA_readaudio(&vidCtx, buf->data_pcm16, buffSize);
-						__lock_release(oggMutex);
+						//__lock_release(oggMutex);
 						if(read <= 0)
 						{
 							return;
@@ -102,7 +103,6 @@ void videoDecode_thread(void* nul) {
 					}
 					DSP_FlushDataCache(buf->data_pcm16, buffSize * sizeof(int16_t));
 				}
-				LightEvent_Wait(&soundEvent);
 			}
 
 			if (newframe) {
@@ -131,7 +131,7 @@ void audioCallback(void *const arg_)
 	LightEvent_Signal(&soundEvent);
 }
 
-void audioDecode_thread(void* nul) {
+/*void audioDecode_thread(void* nul) {
 	THEORA_audioinfo* ainfo = THEORA_audinfo(&vidCtx);
 
 	if (THEORA_HasAudio(&vidCtx))
@@ -164,7 +164,7 @@ void audioDecode_thread(void* nul) {
 	//audioClose();
 
 	threadExit(0);
-}
+}*/
 
 static void exitThread(void) {
 	isplaying = false;
@@ -213,11 +213,9 @@ static void changeFile(char* filepath) {
 //---------------------------------------------------------------------------------
 int main(int argc, char* argv[]) {
 //---------------------------------------------------------------------------------
-	//char *filename = "sdmc:/videos/test.ogv";
-	//char *filename = "sdmc:/videos/A_Digital_Media_Primer_For_Geeks-240p.ogv";
 	dirList_t dirList = {0};
 	int fileMax;
-	int fileNum = 0;
+	int cursor = 0;
 	int from = 0;
 
 	romfsInit();
@@ -238,14 +236,12 @@ int main(int argc, char* argv[]) {
 	// Create screens
 	top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
 
-	printf("%s.\n", th_version_string());
+	//printf("%s.\n", th_version_string());
 
 	fileMax = getDir(&dirList);
-	listDir(from, MAX_LIST, 0, dirList);
+	printDir(from, MAX_LIST, 0, dirList);
 
 	ndspSetCallback(audioCallback, NULL);
-
-	//changeFile(filename);
 
 	while(aptMainLoop()){
 		hidScanInput();
@@ -256,67 +252,67 @@ int main(int argc, char* argv[]) {
 			break;
 
 		if (!isplaying) {
-			if((kDown & KEY_UP || (kDownRepeat & KEY_UP)) && fileNum > 0)
+			if((kDown & KEY_UP || (kDownRepeat & KEY_UP)) && cursor > 0)
 			{
-				fileNum--;
+				cursor--;
 
 				/* 26 is the maximum number of entries that can be printed */
-				if(fileMax - fileNum > 26 && from != 0)
+				if(fileMax - cursor > 26 && from != 0)
 					from--;
 
-				listDir(from, MAX_LIST, fileNum, dirList);
+				printDir(from, MAX_LIST, cursor, dirList);
 			}
 
-			if((kDown & KEY_DOWN || (kDownRepeat & KEY_DOWN)) && fileNum < fileMax)
+			if((kDown & KEY_DOWN || (kDownRepeat & KEY_DOWN)) && cursor < fileMax)
 			{
-				fileNum++;
+				cursor++;
 
-				if(fileNum >= MAX_LIST && fileMax - fileNum >= 0 &&
+				if(cursor >= MAX_LIST && fileMax - cursor >= 0 &&
 						from < fileMax - MAX_LIST)
 					from++;
 
-				listDir(from, MAX_LIST, fileNum, dirList);
+				printDir(from, MAX_LIST, cursor, dirList);
 			}
 
 			/*
 			 * Pressing B goes up a folder, as well as pressing A or R when ".."
 			 * is selected.
 			 */
-			if((kDown & KEY_B) || ((kDown & KEY_A) && (from == 0 && fileNum == 0)))
+			if((kDown & KEY_B) || ((kDown & KEY_A) && (from == 0 && cursor == 0)))
 			{
 				chdir("..");
 				consoleClear();
 				fileMax = getDir(&dirList);
 
-				fileNum = 0;
+				cursor = 0;
 				from = 0;
 
-				listDir(from, MAX_LIST, fileNum, dirList);
+				printDir(from, MAX_LIST, cursor, dirList);
 
 				continue;
 			}
 
 			if(kDown & KEY_A) {
-				if(dirList.dirNum >= fileNum) {
-					chdir(dirList.directories[fileNum - 1]);
+				if(dirList.dirNum >= cursor) {
+					chdir(dirList.directories[cursor - 1]);
 					consoleClear();
-					fileNum = 0;
+					cursor = 0;
 					from = 0;
 					fileMax = getDir(&dirList);
 
-					listDir(from, MAX_LIST, fileNum, dirList);
+					printDir(from, MAX_LIST, cursor, dirList);
 					continue;
 				}
 
-				if(dirList.dirNum < fileNum) {
-					changeFile(dirList.files[fileNum - dirList.dirNum - 1]);
+				if(dirList.dirNum < cursor) {
+					changeFile(dirList.files[cursor - dirList.dirNum - 1]);
 					continue;
 				}
 			}
 		} else {
 			if(kDown & KEY_B) {
 				exitThread();
-				listDir(from, MAX_LIST, fileNum, dirList);
+				printDir(from, MAX_LIST, cursor, dirList);
 				continue;
 			}
 		}

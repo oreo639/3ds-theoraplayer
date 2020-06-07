@@ -8,35 +8,9 @@
 
 #include "explorer.h"
 
-int cmpstringp(const void *p1, const void *p2)
+static int cmpstringp(const void *p1, const void *p2)
 {
-	/* The actual arguments to this function are "pointers to
-	   pointers to char", but strcmp(3) arguments are "pointers
-	   to char", hence the following cast plus dereference */
-
-	return strcasecmp(* (char * const *) p1, * (char * const *) p2);
-}
-
-int getNumberFiles(void)
-{
-	DIR				*dp;
-	struct dirent	*ep;
-	int				ret = 0;
-
-	if((dp = opendir(".")) == NULL)
-		goto err;
-
-	while((ep = readdir(dp)) != NULL)
-		ret++;
-
-	closedir(dp);
-
-out:
-	return ret;
-
-err:
-	ret = -1;
-	goto out;
+	return strcasecmp(* (const char **) p1, * (const char **) p2);
 }
 
 int getDir(dirList_t* dirList)
@@ -48,7 +22,7 @@ int getDir(dirList_t* dirList)
 	char*			wd = getcwd(NULL, 0);
 
 	if(wd == NULL)
-		goto out;
+		return 0;
 
 	/* Clear strings */
 	for(int i = 0; i < dirList->dirNum; i++)
@@ -60,49 +34,46 @@ int getDir(dirList_t* dirList)
 	free(dirList->currentDir);
 
 	if((dirList->currentDir = strdup(wd)) == NULL)
-		puts("Failure");
+		puts("Failed to copy cwd name. (Out of memory?)");
 
-	if((dp = opendir(wd)) == NULL)
-		goto out;
-
-	while((ep = readdir(dp)) != NULL)
+	if((dp = opendir(wd)) != NULL)
 	{
-		if(ep->d_type == DT_DIR)
+		while((ep = readdir(dp)) != NULL)
 		{
+			if(ep->d_type == DT_DIR)
+			{
+				/* Add more space for another pointer to a dirent struct */
+				dirList->directories = realloc(dirList->directories, (dirNum + 1) * sizeof(char*));
+
+				if((dirList->directories[dirNum] = strdup(ep->d_name)) == NULL)
+					puts("Failed to copy dir entry. (Out of memory?)");
+
+				dirNum++;
+				continue;
+			}
+
 			/* Add more space for another pointer to a dirent struct */
-			dirList->directories = realloc(dirList->directories, (dirNum + 1) * sizeof(char*));
+			dirList->files = realloc(dirList->files, (fileNum + 1) * sizeof(char*));
 
-			if((dirList->directories[dirNum] = strdup(ep->d_name)) == NULL)
-				puts("Failure");
+			if((dirList->files[fileNum] = strdup(ep->d_name)) == NULL)
+				puts("Failed to copy file entry. (Out of memory?)");
 
-			dirNum++;
-			continue;
+			fileNum++;
 		}
 
-		/* Add more space for another pointer to a dirent struct */
-		dirList->files = realloc(dirList->files, (fileNum + 1) * sizeof(char*));
-
-		if((dirList->files[fileNum] = strdup(ep->d_name)) == NULL)
-			puts("Failure");
-
-		fileNum++;
+		qsort(&dirList->files[0], fileNum, sizeof(char *), cmpstringp);
+		qsort(&dirList->directories[0], dirNum, sizeof(char *), cmpstringp);
 	}
-
-	qsort(&dirList->files[0], fileNum, sizeof(char *), cmpstringp);
-	qsort(&dirList->directories[0], dirNum, sizeof(char *), cmpstringp);
 
 	dirList->dirNum = dirNum;
 	dirList->fileNum = fileNum;
 
-	if(closedir(dp) != 0)
-		goto out;
-
-out:
+	closedir(dp);
 	free(wd);
 	return fileNum + dirNum;
 }
 
-int listDir(int from, int max, int select, dirList_t dirList)
+int printDir(int from, int max, int select, dirList_t dirList)
 {
 	int				fileNum = 0;
 	int				listed = 0;
