@@ -9,7 +9,7 @@ You can create a compatible video file using the following command:
 You can change the quality by using the `-q:v` flag. The value can be any interger from 0-10 with 10 being the highest quality.
 The 3ds has limited processing power so I do not recomment using 10, but any value between 0 and 7 should be fine. (4 is recommended)
 
-You can also just set the bitrate manually using the `-b:v` flag.
+You can also just set the bitrate manually using the `-b:v` flag. (Somewhere around 500k is recomended)
 
 You can place your generated videos in the `/videos` directory on your sd card, if it doesn't exist, create it.
 
