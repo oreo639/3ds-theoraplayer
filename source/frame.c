@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include <3ds.h>
 
@@ -99,6 +100,14 @@ void frameDelete(C2D_Image* image) {
 
 void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 	if (!frame || !info)
+		return;
+
+	bool is_busy = true;
+
+	Y2RU_IsBusyConversion(&is_busy);
+
+	if (is_busy)
+		if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out");
 
 	//svcWaitSynchronization(y2rEvent, 1000 * 1000 * 10);
 	Y2RU_StopConversion();
@@ -110,5 +119,4 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 
 	Y2RU_SetReceiving(frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt), info->width * 8 * fmtGetBPP(frame->tex->fmt), (Pow2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
 	Y2RU_StartConversion();
-	if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out");
 }
