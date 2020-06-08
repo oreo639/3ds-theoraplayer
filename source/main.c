@@ -44,6 +44,9 @@ void audioInit(THEORA_audioinfo* ainfo) {
 }
 
 void audioClose(void) {
+	// Note, ndspChnReset() would be more correct here, however ndspChnWaveBufClear()
+	// is being used instead to workaround a bug in libctru 1.9.0, this should
+	// not be necesary in future versions of libctru
 	ndspChnWaveBufClear(0);
 	if (audioBuffer) linearFree(audioBuffer);
 }
