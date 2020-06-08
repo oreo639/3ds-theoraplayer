@@ -63,7 +63,7 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	convSettings.output_format = OUTPUT_RGB_24;
 	
 	Y2RU_SetConversionParams(&convSettings);
-	Y2RU_SetTransferEndInterrupt(1);
+	Y2RU_SetTransferEndInterrupt(true);
 	Y2RU_GetTransferEndEvent(&y2rEvent);
 
 	image->tex = malloc(sizeof(C3D_Tex));
@@ -93,9 +93,6 @@ void frameDelete(C2D_Image* image) {
 
 	if (image->subtex)
 		free((void*)image->subtex);
-
-	if(y2rEvent)
-		svcCloseHandle(y2rEvent);
 }
 
 void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
