@@ -428,43 +428,86 @@ int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 	return 0;
 }
 
-int THEORA_readaudio(THEORA_Context *ctx, int16_t *buffer, int samples)
-{
-	int offset = 0;
-	ogg_packet packet;
-	ogg_int32_t **pcm = NULL;
+long ov_read(THEORA_Context *ctx, char *buffer, int bytes_req, int *bitstream) {
+	int i,j;
 
-	while (offset < samples)
-	{
-		const int frames = vorbis_synthesis_pcmout(&ctx->vdsp, &pcm);
-		if (frames > 0) {
-			/* I bet this beats the crap out of the CPU cache... */
-			for (int frame = 0; frame < frames; frame += 1)
-				for (int chan = 0; chan < ctx->vinfo.channels; chan += 1) {
-					buffer[offset++] = CLIP_TO_15(pcm[chan][frame]>>9);
+	ogg_int32_t **pcm;
+	long samples;
 
-					if (offset >= samples) {
-						vorbis_synthesis_read(
-							&ctx->vdsp,
-							frame
-						);
-						return offset;
-					}
-				}
+	if(!ctx->vpackets)
+		return -1;
 
-			vorbis_synthesis_read(&ctx->vdsp, frames);
-		}
-		/* No audio available left in current packet? */
-		else {
-			/* Keep trying to get a usable packet */
+	while(1) {
+		samples=vorbis_synthesis_pcmout(&ctx->vdsp, &pcm);
+		if(samples)break;
+
+		/* suck in another packet */
+		{
+			ogg_packet packet;
 			if (!oggGetNextPacket(ctx, &ctx->vstream, &packet)) {
 				/* ... unless there's nothing left for us to read. */
-				return offset;
+				return 0;
 			}
 			if (vorbis_synthesis(&ctx->vblock, &packet) == 0) {
 				vorbis_synthesis_blockin(&ctx->vdsp, &ctx->vblock);
 			}
 		}
+
 	}
-	return offset;
+
+	if(samples>0){
+
+		/* yay! proceed to pack data into the byte buffer */
+
+		long channels=ctx->vinfo.channels;
+
+		if(samples>(bytes_req/(2*channels)))
+			samples=bytes_req/(2*channels);
+
+		/* It's faster in this order */
+		for(i=0;i<channels;i++) {
+			ogg_int32_t *src=pcm[i];
+			short *dest=((short *)buffer)+i;
+			for(j=0;j<samples;j++) {
+				*dest=CLIP_TO_15(src[j]>>9);
+				dest+=channels;
+			}
+		}
+
+		vorbis_synthesis_read(&ctx->vdsp, samples);
+		//vf->pcm_offset+=samples;
+		//if(bitstream)*bitstream=vf->current_link;
+		return(samples*2*channels);
+	}else{
+		return(samples);
+	}
+}
+
+int THEORA_readaudio(THEORA_Context *ctx, char *bufferOut, int buffSize)
+{
+	uint64_t samplesRead = 0;
+	int samplesToRead = buffSize;
+
+	while(samplesToRead > 0)
+	{
+		//static int current_section;
+		int samplesJustRead =
+			ov_read(ctx, bufferOut,
+					samplesToRead > 4096 ? 4096	: samplesToRead,
+					NULL);
+
+		if(samplesJustRead < 0)
+			return samplesJustRead;
+		else if(samplesJustRead == 0)
+		{
+			/* End of file reached. */
+			break;
+		}
+
+		samplesRead += samplesJustRead;
+		samplesToRead -= samplesJustRead;
+		bufferOut += samplesJustRead;
+	}
+
+	return samplesRead / sizeof(int16_t);
 }

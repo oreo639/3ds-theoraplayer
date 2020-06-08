@@ -82,4 +82,4 @@ int THEORA_eos(THEORA_Context *ctx);
 void THEORA_reset(THEORA_Context *ctx);
 int THEORA_readvideo(THEORA_Context *ctx);
 int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr);
-int THEORA_readaudio(THEORA_Context *ctx, int16_t *buffer, int samples);
+int THEORA_readaudio(THEORA_Context *ctx, char *bufferOut, int buffSize);
