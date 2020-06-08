@@ -73,6 +73,22 @@ static inline int oggGetNextPacket(THEORA_Context *ctx, ogg_stream_state *stream
 	return 1;
 }
 
+// Taken from libtremor
+// https://gitlab.xiph.org/xiph/tremor/-/blob/master/asm_arm.h#L108
+#if defined(ARM_ASM_CLIP15)
+static inline ogg_int32_t CLIP_TO_15(ogg_int32_t x) {
+  int tmp;
+  asm volatile("subs	%1, %0, #32768\n\t"
+	       "movpl	%0, #0x7f00\n\t"
+	       "orrpl	%0, %0, #0xff\n"
+	       "adds	%1, %0, #32768\n\t"
+	       "movmi	%0, #0x8000"
+	       : "+r"(x),"=r"(tmp)
+	       :
+	       : "cc");
+  return(x);
+}
+#else
 static inline ogg_int32_t CLIP_TO_15(ogg_int32_t x)
 {
     int ret = x;
@@ -80,6 +96,7 @@ static inline ogg_int32_t CLIP_TO_15(ogg_int32_t x)
     ret -= ((x>=-32768)-1)&(x+32768);
     return ret;
 }
+#endif
 
 int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callbacks io)
 {

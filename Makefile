@@ -55,7 +55,7 @@ else
 	CFLAGS += -Og -g
 endif
 
-CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
+CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DARM_ASM_CLIP15=1
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 
