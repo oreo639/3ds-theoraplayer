@@ -58,26 +58,9 @@ void videoDecode_thread(void* nul) {
 	if (THEORA_HasAudio(&vidCtx))
 		audioInit(ainfo);
 
-	if (THEORA_HasVideo(&vidCtx))
-		frameInit(&frame, vinfo);
-
 	if (THEORA_HasVideo(&vidCtx)) {
 		printf("Ogg stream is Theora %dx%d %.02f fps\n", vinfo->width, vinfo->height, vinfo->fps);
-
-		switch(vinfo->colorspace) {
-			case TH_CS_UNSPECIFIED:
-				// nothing to report
-				break;;
-			case TH_CS_ITU_REC_470M:
-				printf("	encoder specified ITU Rec 470M (NTSC) color.\n");
-				break;;
-			case TH_CS_ITU_REC_470BG:
-				printf("	encoder specified ITU Rec 470BG (PAL) color.\n");
-				break;;
-			default:
-				printf("warning: encoder specified unknown colorspace (%d).\n",	vinfo->colorspace);
-				break;;
-		}
+		frameInit(&frame, vinfo);
 	}
 
 	while (isplaying)

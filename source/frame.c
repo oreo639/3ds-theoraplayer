@@ -34,7 +34,6 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	if (!image || !info)
 		return 1;
 
-	Y2RU_StopConversion();                          
 	convSettings.alpha = 0xFF;
 	convSettings.unused = 0;
 	convSettings.rotation = ROTATION_NONE;
@@ -42,6 +41,20 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	convSettings.input_line_width = info->width;
 	convSettings.input_lines = info->height;
 	convSettings.standard_coefficient = COEFFICIENT_ITU_R_BT_601;
+	switch(vinfo->colorspace) {
+		case TH_CS_UNSPECIFIED:
+			// nothing to report
+			break;;
+		case TH_CS_ITU_REC_470M:
+			printf("	encoder specified ITU Rec 470M (NTSC) color.\n");
+			break;;
+		case TH_CS_ITU_REC_470BG:
+			printf("	encoder specified ITU Rec 470BG (PAL) color.\n");
+			break;;
+		default:
+			printf("warning: encoder specified unknown colorspace (%d).\n",	vinfo->colorspace);
+			break;;
+	}
 	switch(info->fmt)
 	{
 		case TH_PF_420:
@@ -85,6 +98,8 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 void frameDelete(C2D_Image* image) {
 	if (!image)
 		return;
+
+	Y2RU_StopConversion();
 
 	if (image->tex) {
 		C3D_TexDelete(image->tex);
