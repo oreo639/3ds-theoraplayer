@@ -41,7 +41,7 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	convSettings.input_line_width = info->width;
 	convSettings.input_lines = info->height;
 	convSettings.standard_coefficient = COEFFICIENT_ITU_R_BT_601_SCALING;
-	switch(vinfo->colorspace) {
+	switch(info->colorspace) {
 		case TH_CS_UNSPECIFIED:
 			// nothing to report
 			break;;
@@ -52,7 +52,7 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 			printf("	encoder specified ITU Rec 470BG (PAL) color.\n");
 			break;;
 		default:
-			printf("warning: encoder specified unknown colorspace (%d).\n",	vinfo->colorspace);
+			printf("warning: encoder specified unknown colorspace (%d).\n",	info->colorspace);
 			break;;
 	}
 	switch(info->fmt)
