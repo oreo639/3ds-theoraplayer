@@ -40,7 +40,7 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	convSettings.block_alignment = BLOCK_8_BY_8;
 	convSettings.input_line_width = info->width;
 	convSettings.input_lines = info->height;
-	convSettings.standard_coefficient = COEFFICIENT_ITU_R_BT_601;
+	convSettings.standard_coefficient = COEFFICIENT_ITU_R_BT_601_SCALING;
 	switch(vinfo->colorspace) {
 		case TH_CS_UNSPECIFIED:
 			// nothing to report
