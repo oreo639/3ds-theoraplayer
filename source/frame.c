@@ -7,6 +7,8 @@
 
 Handle y2rEvent = 0;
 
+Y2RU_ConversionParams convSettings;
+
 static inline u32 Pow2(u32 x)
 {
     if (x <= 2)
@@ -29,9 +31,7 @@ static inline size_t fmtGetBPP(GPU_TEXCOLOR fmt)
 }
 
 int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
-	Y2RU_ConversionParams convSettings;
-
-	if (!image || !info)
+	if (!image || !info || y2rInit())
 		return 1;
 
 	convSettings.alpha = 0xFF;
@@ -40,6 +40,11 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	convSettings.block_alignment = BLOCK_8_BY_8;
 	convSettings.input_line_width = info->width;
 	convSettings.input_lines = info->height;
+	if (convSettings.input_lines % 8)
+	{
+		//convSettings.input_lines += 8 - convSettings.input_lines % 8;
+		printf("Height not multiple of 8, cropping to %dpx\n", convSettings.input_lines);
+	}
 	convSettings.standard_coefficient = COEFFICIENT_ITU_R_BT_601_SCALING;
 	switch(info->colorspace) {
 		case TH_CS_UNSPECIFIED:
@@ -108,6 +113,8 @@ void frameDelete(C2D_Image* image) {
 
 	if (image->subtex)
 		free((void*)image->subtex);
+
+	y2rExit();
 }
 
 void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
@@ -119,7 +126,20 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 	Y2RU_IsBusyConversion(&is_busy);
 
 	if (is_busy)
-		if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out");
+		if(svcWaitSynchronization(y2rEvent, 1000 * 1000)) puts("Y2R timed out");
+
+	/*for (int try = 0; try < 5; try++) {
+		if (is_done)
+			break;
+
+		if(svcWaitSynchronization(y2rEvent, 1000 * 1000))
+			puts("Y2R timed out");
+
+		Y2RU_IsBusyConversion(&is_done);
+
+		if (try == 4)
+			puts("Frame sync exceded maximum tries.");
+	}*/
 
 	//svcWaitSynchronization(y2rEvent, 1000 * 1000 * 10);
 	Y2RU_StopConversion();

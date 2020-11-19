@@ -237,7 +237,6 @@ int main(int argc, char* argv[]) {
 
 	romfsInit();
 	ndspInit();
-	y2rInit();
 	gfxInitDefault();
 	C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
 	C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
@@ -347,7 +346,6 @@ int main(int argc, char* argv[]) {
 	osSetSpeedupEnable(false);
 
 	gfxExit();
-	y2rExit();
 	ndspExit();
 	romfsExit();
 	return 0;
