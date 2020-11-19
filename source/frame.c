@@ -5,8 +5,6 @@
 
 #include "frame.h"
 
-Handle y2rEvent = 0;
-
 Y2RU_ConversionParams convSettings;
 
 static inline u32 Pow2(u32 x)
@@ -34,55 +32,37 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	if (!image || !info || y2rInit())
 		return 1;
 
-	convSettings.alpha = 0xFF;
-	convSettings.unused = 0;
-	convSettings.rotation = ROTATION_NONE;
-	convSettings.block_alignment = BLOCK_8_BY_8;
-	convSettings.input_line_width = info->width;
-	convSettings.input_lines = info->height;
-	if (convSettings.input_lines % 8)
-	{
-		//convSettings.input_lines += 8 - convSettings.input_lines % 8;
-		printf("Height not multiple of 8, cropping to %dpx\n", convSettings.input_lines);
-	}
-	convSettings.standard_coefficient = COEFFICIENT_ITU_R_BT_601_SCALING;
 	switch(info->colorspace) {
 		case TH_CS_UNSPECIFIED:
 			// nothing to report
-			break;;
+			break;
 		case TH_CS_ITU_REC_470M:
 			printf("	encoder specified ITU Rec 470M (NTSC) color.\n");
-			break;;
+			break;
 		case TH_CS_ITU_REC_470BG:
 			printf("	encoder specified ITU Rec 470BG (PAL) color.\n");
-			break;;
+			break;
 		default:
 			printf("warning: encoder specified unknown colorspace (%d).\n",	info->colorspace);
-			break;;
+			break;
 	}
+
 	switch(info->fmt)
 	{
 		case TH_PF_420:
 			printf(" 4:2:0 video\n");
-			convSettings.input_format = INPUT_YUV420_INDIV_8;
 			break;
 		case TH_PF_422:
 			printf(" 4:2:2 video\n");
-			convSettings.input_format = INPUT_YUV422_INDIV_8;
 			break;
 		case TH_PF_444:
 			puts("YUV444 is not supported by Y2R");
-			break;
+			return 2;
 		case TH_PF_RSVD:
 		default:
 			printf(" video\n	(UNKNOWN Chroma sampling!)\n");
 			return 2;
 	}
-	convSettings.output_format = OUTPUT_RGB_24;
-	
-	Y2RU_SetConversionParams(&convSettings);
-	Y2RU_SetTransferEndInterrupt(true);
-	Y2RU_GetTransferEndEvent(&y2rEvent);
 
 	image->tex = malloc(sizeof(C3D_Tex));
 	C3D_TexInit(image->tex, Pow2(info->width), Pow2(info->height), GPU_RGB8);
@@ -122,27 +102,33 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 		return;
 
 	bool is_busy = true;
+	while (is_busy) {
+		Y2RU_StopConversion();
 
-	Y2RU_IsBusyConversion(&is_busy);
+		Y2RU_IsBusyConversion(&is_busy);			
+	}
 
-	if (is_busy)
-		if(svcWaitSynchronization(y2rEvent, 1000 * 1000)) puts("Y2R timed out");
-
-	/*for (int try = 0; try < 5; try++) {
-		if (is_done)
+	switch(info->fmt)
+	{
+		case TH_PF_420:
+			Y2RU_SetInputFormat(INPUT_YUV420_INDIV_8);
 			break;
+		case TH_PF_422:
+			Y2RU_SetInputFormat(INPUT_YUV422_INDIV_8);
+			break;
+		default:
+			break;
+	}
+	Y2RU_SetOutputFormat(OUTPUT_RGB_24);
+	Y2RU_SetRotation(ROTATION_NONE);
+	Y2RU_SetBlockAlignment(BLOCK_8_BY_8);
+	Y2RU_SetTransferEndInterrupt(true);
+	Y2RU_SetInputLineWidth(info->width);
+	Y2RU_SetInputLines(info->height);
+	Y2RU_SetStandardCoefficient(COEFFICIENT_ITU_R_BT_601_SCALING);
+	Y2RU_SetAlpha(0xFF);
 
-		if(svcWaitSynchronization(y2rEvent, 1000 * 1000))
-			puts("Y2R timed out");
-
-		Y2RU_IsBusyConversion(&is_done);
-
-		if (try == 4)
-			puts("Frame sync exceded maximum tries.");
-	}*/
-
-	//svcWaitSynchronization(y2rEvent, 1000 * 1000 * 10);
-	Y2RU_StopConversion();
+	//svcWaitSynchronization(y2rEvent, 1000 * 1000);
 	{
 		Y2RU_SetSendingY(ybr[0].data, ybr[0].stride * ybr[0].height, ybr[0].width, ybr[0].stride - ybr[0].width);
 		Y2RU_SetSendingU(ybr[1].data, ybr[1].stride * ybr[1].height, ybr[1].width, ybr[1].stride - ybr[1].width);
