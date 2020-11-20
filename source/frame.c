@@ -5,8 +5,6 @@
 
 #include "frame.h"
 
-Y2RU_ConversionParams convSettings;
-
 static inline u32 Pow2(u32 x)
 {
     if (x <= 2)
@@ -102,10 +100,10 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 		return;
 
 	bool is_busy = true;
-	while (is_busy) {
-		Y2RU_StopConversion();
 
-		Y2RU_IsBusyConversion(&is_busy);			
+	Y2RU_StopConversion();
+	while (is_busy) {
+		Y2RU_IsBusyConversion(&is_busy);
 	}
 
 	switch(info->fmt)
@@ -128,12 +126,13 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 	Y2RU_SetStandardCoefficient(COEFFICIENT_ITU_R_BT_601_SCALING);
 	Y2RU_SetAlpha(0xFF);
 
-	//svcWaitSynchronization(y2rEvent, 1000 * 1000);
-	{
-		Y2RU_SetSendingY(ybr[0].data, ybr[0].stride * ybr[0].height, ybr[0].width, ybr[0].stride - ybr[0].width);
-		Y2RU_SetSendingU(ybr[1].data, ybr[1].stride * ybr[1].height, ybr[1].width, ybr[1].stride - ybr[1].width);
-		Y2RU_SetSendingV(ybr[2].data, ybr[2].stride * ybr[2].height, ybr[2].width, ybr[2].stride - ybr[2].width);
-	}
+	//Y2RU_SetSendingY(ybr[0].data, ybr[0].stride * ybr[0].height, ybr[0].width, ybr[0].stride - ybr[0].width);
+	//Y2RU_SetSendingU(ybr[1].data, ybr[1].stride * ybr[1].height, ybr[1].width, ybr[1].stride - ybr[1].width);
+	//Y2RU_SetSendingV(ybr[2].data, ybr[2].stride * ybr[2].height, ybr[2].width, ybr[2].stride - ybr[2].width);
+
+	Y2RU_SetSendingY(ybr[0].data, info->width * info->height, info->width, ybr[0].stride - info->width);
+	Y2RU_SetSendingU(ybr[1].data, (info->width/2) * (info->height/2), info->width/2, ybr[1].stride - (info->width >> 1));
+	Y2RU_SetSendingV(ybr[2].data, (info->width/2) * (info->height/2), info->width/2, ybr[2].stride - (info->width >> 1));
 
 	Y2RU_SetReceiving(frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt), info->width * 8 * fmtGetBPP(frame->tex->fmt), (Pow2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
 	Y2RU_StartConversion();

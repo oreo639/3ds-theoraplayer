@@ -15,6 +15,8 @@ typedef struct tf_callbacks {
 typedef struct {
 	int width;
 	int height;
+	int x_offs;
+	int y_offs;
 	double fps;
 	th_pixel_fmt fmt;
 	th_colorspace colorspace;

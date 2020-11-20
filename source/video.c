@@ -220,8 +220,10 @@ int THEORA_CallbackCreate(THEORA_Context* ctx, void* datasource, THEORA_callback
 		if (ctx->tinfo.fps_denominator)
 			fps = ((double) ctx->tinfo.fps_numerator) / ((double) ctx->tinfo.fps_denominator);
 
-		ctx->videoinfo.width = ctx->tinfo.pic_width;
-		ctx->videoinfo.height = ctx->tinfo.pic_height;
+		ctx->videoinfo.width = ((ctx->tinfo.pic_x + ctx->tinfo.frame_width + 1) & ~1) - (ctx->tinfo.pic_x & ~1); // ctx->tinfo.pic_width;
+		ctx->videoinfo.height = ((ctx->tinfo.pic_y + ctx->tinfo.frame_height + 1) & ~1) - (ctx->tinfo.pic_y & ~1); // ctx->tinfo.pic_height;
+		ctx->videoinfo.x_offs = ctx->tinfo.pic_x;
+		ctx->videoinfo.y_offs = ctx->tinfo.pic_y;
 		ctx->videoinfo.fps = fps;
 		ctx->videoinfo.fmt = ctx->tinfo.pixel_fmt;
 		ctx->videoinfo.colorspace = ctx->tinfo.colorspace;
