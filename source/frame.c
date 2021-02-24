@@ -5,7 +5,7 @@
 
 #include "frame.h"
 
-static inline u32 Pow2(u32 x)
+static inline u32 nearestPo2(u32 x)
 {
     if (x <= 2)
         return x;
@@ -63,7 +63,7 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	}
 
 	image->tex = malloc(sizeof(C3D_Tex));
-	C3D_TexInit(image->tex, Pow2(info->width), Pow2(info->height), GPU_RGB8);
+	C3D_TexInit(image->tex, nearestPo2(info->width), nearestPo2(info->height), GPU_RGB8);
 
 	Tex3DS_SubTexture* subtex = malloc(sizeof(Tex3DS_SubTexture));
 
@@ -71,8 +71,8 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	subtex->height = info->height;
 	subtex->left = 0.0f;
 	subtex->top = 1.0f;
-	subtex->right = (float)info->width/Pow2(info->width);
-	subtex->bottom = 1.0-((float)info->height/Pow2(info->height));
+	subtex->right = (float)info->width/nearestPo2(info->width);
+	subtex->bottom = 1.0-((float)info->height/nearestPo2(info->height));
 	image->subtex = subtex;
 
 	return 0;
@@ -134,6 +134,6 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 	Y2RU_SetSendingU(ybr[1].data, (info->width/2) * (info->height/2), info->width/2, ybr[1].stride - (info->width >> 1));
 	Y2RU_SetSendingV(ybr[2].data, (info->width/2) * (info->height/2), info->width/2, ybr[2].stride - (info->width >> 1));
 
-	Y2RU_SetReceiving(frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt), info->width * 8 * fmtGetBPP(frame->tex->fmt), (Pow2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
+	Y2RU_SetReceiving(frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt), info->width * 8 * fmtGetBPP(frame->tex->fmt), (nearestPo2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
 	Y2RU_StartConversion();
 }
