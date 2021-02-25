@@ -68,11 +68,11 @@ void videoDecode_thread(void* nul) {
 		if (THEORA_eos(&vidCtx))
 			break;
 
-		bool newframe = false;
-
 		if (THEORA_HasVideo(&vidCtx)) {
 			//__lock_acquire(oggMutex);
-			newframe = THEORA_readvideo(&vidCtx);
+			th_ycbcr_buffer ybr;
+			if (THEORA_getvideo(&vidCtx, ybr))
+					frameWrite(&frame, vinfo, ybr);
 			//__lock_release(oggMutex);
 		}
 
@@ -95,12 +95,6 @@ void videoDecode_thread(void* nul) {
 				}
 				DSP_FlushDataCache(buf->data_pcm16, buffSize * sizeof(int16_t));
 			}
-		}
-
-		if (newframe) {
-			th_ycbcr_buffer ybr;
-			while (!THEORA_decodevideo(&vidCtx, ybr));
-			frameWrite(&frame, vinfo, ybr);
 		}
 	}
 

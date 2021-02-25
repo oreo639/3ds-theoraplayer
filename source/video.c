@@ -371,7 +371,7 @@ double get_time(THEORA_Context *ctx)
 	return (now-ctx->timer_calibrate)*.001;
 }
 
-int THEORA_readvideo(THEORA_Context *ctx)
+int THEORAi_readvideo(THEORA_Context *ctx)
 {
 	ogg_int64_t granulepos = 0;
 	ogg_packet packet;
@@ -426,7 +426,7 @@ int THEORA_readvideo(THEORA_Context *ctx)
 	return retval;
 }
 
-int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
+int THEORAi_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 	if (ctx->videobuf_time<=get_time(ctx)) {
 		if (th_decode_ycbcr_out(ctx->tdec, ybr) != 0)
 			return 0; // Uhh?!
@@ -443,6 +443,18 @@ int THEORA_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 		}
 	}
 	return 0;
+}
+
+int THEORA_getvideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
+	int ret;
+
+	if (!ctx->frames)
+		THEORAi_readvideo(ctx);
+
+	if ((ret = THEORAi_decodevideo(ctx, ybr)))
+		THEORAi_readvideo(ctx);
+
+	return ret;
 }
 
 long ov_read(THEORA_Context *ctx, char *buffer, int bytes_req, int *bitstream) {

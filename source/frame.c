@@ -64,6 +64,7 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 
 	image->tex = malloc(sizeof(C3D_Tex));
 	C3D_TexInit(image->tex, nearestPo2(info->width), nearestPo2(info->height), GPU_RGB8);
+	memset(image->tex->data, 0, image->tex->size);
 
 	Tex3DS_SubTexture* subtex = malloc(sizeof(Tex3DS_SubTexture));
 
