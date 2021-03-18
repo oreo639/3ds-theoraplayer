@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include<unistd.h>
+#include <unistd.h>
 
 #include <3ds.h>
 #include <citro3d.h>
@@ -23,6 +23,7 @@ int16_t* audioBuffer;
 LightEvent soundEvent;
 _LOCK_T oggMutex;
 int ready = 0;
+float scaleframe = 1.0f;
 
 int isplaying = false;
 
@@ -44,10 +45,7 @@ void audioInit(THEORA_audioinfo* ainfo) {
 }
 
 void audioClose(void) {
-	// Note, ndspChnReset() would be more correct here, however ndspChnWaveBufClear()
-	// is being used instead to workaround a bug in libctru 1.9.0, this should
-	// not be necesary in future versions of libctru
-	ndspChnWaveBufClear(0);
+	ndspChnReset(0);
 	if (audioBuffer) linearFree(audioBuffer);
 }
 
@@ -331,7 +329,7 @@ int main(int argc, char* argv[]) {
 			C2D_TargetClear(top, C2D_Color32(20, 29, 31, 255));
 			C2D_SceneBegin(top);
 			if (isplaying && THEORA_HasVideo(&vidCtx))
-				C2D_DrawImageAt(frame, 0, 0, 0.5f, NULL, 1.0f, 1.0f);
+				C2D_DrawImageAt(frame, 0, 0, 0.5f, NULL, scaleframe, scaleframe);
 		C3D_FrameEnd(0);
 	}
 

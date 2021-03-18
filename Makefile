@@ -50,7 +50,7 @@ CFLAGS	:=	-Wall -Wextra -mword-relocations \
 			$(ARCH)
 
 ifdef RELEASE
-	CFLAGS += -O3 -g
+	CFLAGS += -O3
 else
 	CFLAGS += -Og -g
 endif
@@ -60,7 +60,7 @@ CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DARM_ASM_CLIP15=1
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 
 ASFLAGS	:=	-g $(ARCH)
-LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
+LDFLAGS	=	-specs=3dsx.specs $(ARCH) -Wl,-Map,$(notdir $*.map)
 
 LIBS	:= -ltheoradec -lvorbisidec -logg -lcitro2d -lcitro3d -lctru -lz -lm
 
