@@ -75,9 +75,7 @@ void videoDecode_thread(void* nul) {
 					size_t read = THEORA_readaudio(&vidCtx, buf->data_pcm16, buffSize);
 					//__lock_release(oggMutex);
 					if(read <= 0)
-					{
-						return;
-					}
+						break;
 					else if(read <= buffSize)
 						buf->nsamples = read / ainfo->channels;
 
@@ -134,9 +132,7 @@ void audioCallback(void *const arg_)
 					size_t read = THEORA_readaudio(&vidCtx, buf->data_pcm16, buffSize);
 					__lock_release(oggMutex);
 					if(read <= 0)
-					{
-						return;
-					}
+						break;
 					else if(read <= buffSize)
 						buf->nsamples = read / ainfo->channels;
 

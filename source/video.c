@@ -375,48 +375,55 @@ int THEORAi_readvideo(THEORA_Context *ctx)
 {
 	ogg_int64_t granulepos = 0;
 	ogg_packet packet;
+	int retval = 0;
 	int rc;
 
-	// Keep trying to get a usable packet
-	if (!oggGetNextPacket(ctx, &ctx->tstream, &packet))
-		return 0;
+	while (!retval) {
+		// Keep trying to get a usable packet
+		if (!oggGetNextPacket(ctx, &ctx->tstream, &packet)) {
+			// ... unless there's nothing left for us to read.
+			if (retval) {
+				break;
+			}
+			return 0;
+		}
+		/*HACK: This should be set after a seek or a gap, but we might not have
+		 a granulepos for the first packet (we only have them for the last
+		 packet on a page), so we just set it as often as we get it.
+		To do this right, we should back-track from the last packet on the
+		 page and compute the correct granulepos for the first packet after
+		 a seek or a gap.*/
+		if(ctx->pp_inc) {
+			ctx->pp_level += ctx->pp_inc;
+			th_decode_ctl(ctx->tdec, TH_DECCTL_SET_PPLEVEL, &ctx->pp_level, sizeof(ctx->pp_level));
+			ctx->pp_inc=0;
+		}
+		if((rc = th_decode_packetin(ctx->tdec, &packet, &granulepos)) == 0) {
+			ctx->videobuf_time=th_granule_time(ctx->tdec, granulepos);
+			ctx->frames++;
 
-	/*HACK: This should be set after a seek or a gap, but we might not have
-	 a granulepos for the first packet (we only have them for the last
-	 packet on a page), so we just set it as often as we get it.
-	To do this right, we should back-track from the last packet on the
-	 page and compute the correct granulepos for the first packet after
-	 a seek or a gap.*/
-	if(ctx->pp_inc) {
-		ctx->pp_level += ctx->pp_inc;
-		th_decode_ctl(ctx->tdec, TH_DECCTL_SET_PPLEVEL, &ctx->pp_level, sizeof(ctx->pp_level));
-		ctx->pp_inc=0;
-	}
-	if((rc = th_decode_packetin(ctx->tdec, &packet, &granulepos)) == 0) {
-		ctx->videobuf_time=th_granule_time(ctx->tdec, granulepos);
-		ctx->frames++;
+			/* is it already too old to be useful?	This is only actually
+			 useful cosmetically after a SIGSTOP.	Note that we have to
+			 decode the frame even if we don't show it (for now) due to
+			 keyframing.	Soon enough libtheora will be able to deal
+			 with non-keyframe seeks.	*/
 
-		/* is it already too old to be useful?	This is only actually
-		 useful cosmetically after a SIGSTOP.	Note that we have to
-		 decode the frame even if we don't show it (for now) due to
-		 keyframing.	Soon enough libtheora will be able to deal
-		 with non-keyframe seeks.	*/
-
-		if(ctx->videobuf_time>=get_time(ctx))
-			return 1;
-		else{
-			/*If we are too slow, reduce the pp level.*/
-			ctx->pp_inc=ctx->pp_level>0?-1:0;
-			ctx->dropped++;
-			//printf("Frame dropped\n");
+			if(ctx->videobuf_time>=get_time(ctx))
+				retval = 1;
+			else{
+				/*If we are too slow, reduce the pp level.*/
+				ctx->pp_inc=ctx->pp_level>0?-1:0;
+				ctx->dropped++;
+				//printf("Frame dropped\n");
+			}
+		}
+		else if (rc != TH_DUPFRAME)
+		{
+			return 0; // Why did we get here...?
 		}
 	}
-	else if (rc == TH_DUPFRAME) {
-		ctx->frames++;
-		return 1;
-	}
 
-	return 0;
+	return retval;
 }
 
 int THEORAi_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
