@@ -66,14 +66,6 @@ void videoDecode_thread(void* nul) {
 		if (THEORA_eos(&vidCtx))
 			break;
 
-		if (THEORA_HasVideo(&vidCtx)) {
-			//__lock_acquire(oggMutex);
-			th_ycbcr_buffer ybr;
-			if (THEORA_getvideo(&vidCtx, ybr))
-					frameWrite(&frame, vinfo, ybr);
-			//__lock_release(oggMutex);
-		}
-
 		if (THEORA_HasAudio(&vidCtx)) {
 			for (int cur_wvbuf = 0; cur_wvbuf < WAVEBUFCOUNT; cur_wvbuf++) {
 				ndspWaveBuf *buf = &waveBuf[cur_wvbuf];
@@ -93,6 +85,14 @@ void videoDecode_thread(void* nul) {
 				}
 				DSP_FlushDataCache(buf->data_pcm16, buffSize * sizeof(int16_t));
 			}
+		}
+
+		if (THEORA_HasVideo(&vidCtx)) {
+			//__lock_acquire(oggMutex);
+			th_ycbcr_buffer ybr;
+			if (THEORA_getvideo(&vidCtx, ybr))
+				frameWrite(&frame, vinfo, ybr);
+			//__lock_release(oggMutex);
 		}
 	}
 
