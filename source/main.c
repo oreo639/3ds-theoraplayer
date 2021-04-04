@@ -9,6 +9,9 @@
 #include "frame.h"
 #include "explorer.h"
 
+#define SCREEN_WIDTH  400
+#define SCREEN_HEIGHT 240
+
 #define WAVEBUFCOUNT 3
 #define	MAX_LIST     28
 
@@ -26,6 +29,12 @@ int ready = 0;
 float scaleframe = 1.0f;
 
 int isplaying = false;
+
+static inline float getFrameScalef(float wi, float hi, float targetw, float targeth) {
+	float w = targetw/wi;
+	float h = targeth/hi;
+	return scaleframe = fabs(w) > fabs(h) ? h : w;
+}
 
 void audioInit(THEORA_audioinfo* ainfo) {
 	ndspChnReset(0);
@@ -209,6 +218,8 @@ static void changeFile(const char* filepath) {
 	printf("Theora Create sucessful.\n");
 	isplaying = true;
 
+	scaleframe = 1.0f;
+
 	s32 prio;
 	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
 	vthread = threadCreate(videoDecode_thread, NULL, 32 * 1024, prio-1, -1, false);
@@ -314,10 +325,21 @@ int main(int argc, char* argv[]) {
 				}
 			}
 		} else {
-			if(kDown & KEY_B) {
+			if (kDown & KEY_B) {
 				exitThread();
 				printDir(from, MAX_LIST, cursor, dirList);
 				continue;
+			}
+
+			if (kDown & KEY_Y) {
+				//printf("Ypress\n");
+				if (scaleframe == 1.0f) {
+					THEORA_videoinfo* vinfo = THEORA_vidinfo(&vidCtx);
+					scaleframe = getFrameScalef(vinfo->width, vinfo->height, SCREEN_WIDTH, SCREEN_HEIGHT);
+					//printf("sf %f\n", scaleframe);
+				} else {
+					scaleframe = 1.0f;
+				}
 			}
 		}
 
