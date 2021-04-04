@@ -68,6 +68,7 @@ void videoDecode_thread(void* nul) {
 	if (THEORA_HasVideo(&vidCtx)) {
 		printf("Ogg stream is Theora %dx%d %.02f fps\n", vinfo->width, vinfo->height, vinfo->fps);
 		frameInit(&frame, vinfo);
+		scaleframe = getFrameScalef(vinfo->width, vinfo->height, SCREEN_WIDTH, SCREEN_HEIGHT);
 	}
 
 	while (isplaying)
@@ -217,8 +218,6 @@ static void changeFile(const char* filepath) {
 
 	printf("Theora Create sucessful.\n");
 	isplaying = true;
-
-	scaleframe = 1.0f;
 
 	s32 prio;
 	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
