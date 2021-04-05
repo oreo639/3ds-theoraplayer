@@ -36,6 +36,19 @@ static inline float getFrameScalef(float wi, float hi, float targetw, float targ
 	return fabs(w) > fabs(h) ? h : w;
 }
 
+static inline bool drawFrameImageCentered(C2D_Image img, float x, float y, float depth,
+	const C2D_ImageTint* tint C2D_OPTIONAL(nullptr),
+	float scaleX C2D_OPTIONAL(1.0f), float scaleY C2D_OPTIONAL(1.0f))
+{
+	C2D_DrawParams params =
+	{
+		{ x, y, scaleX*img.subtex->width, scaleY*img.subtex->height },
+		{ (scaleX*img.subtex->width)/2.0f, (scaleY*img.subtex->height)/2.0f },
+		depth, 0.0f
+	};
+	return C2D_DrawImage(img, &params, tint);
+}
+
 void audioInit(THEORA_audioinfo* ainfo) {
 	ndspChnReset(0);
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
@@ -347,8 +360,10 @@ int main(int argc, char* argv[]) {
 			C2D_TargetClear(top, C2D_Color32(20, 29, 31, 255));
 			C2D_SceneBegin(top);
 			if (isplaying && THEORA_HasVideo(&vidCtx)) {
+				THEORA_videoinfo* vinfo = THEORA_vidinfo(&vidCtx);
+
 				__lock_acquire(frameMutex);
-				C2D_DrawImageAt(frame, 0, 0, 0.5f, NULL, scaleframe, scaleframe);
+				drawFrameImageCentered(frame, SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 0.5f, NULL, scaleframe, scaleframe);
 				__lock_release(frameMutex);
 			}
 		C3D_FrameEnd(0);
