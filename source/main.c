@@ -33,7 +33,7 @@ int isplaying = false;
 static inline float getFrameScalef(float wi, float hi, float targetw, float targeth) {
 	float w = targetw/wi;
 	float h = targeth/hi;
-	return scaleframe = fabs(w) > fabs(h) ? h : w;
+	return fabs(w) > fabs(h) ? h : w;
 }
 
 void audioInit(THEORA_audioinfo* ainfo) {
