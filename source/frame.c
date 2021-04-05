@@ -5,6 +5,8 @@
 
 #include "frame.h"
 
+Handle y2rEvent;
+
 static inline u32 nearestPo2(u32 x)
 {
     if (x <= 2)
@@ -49,11 +51,9 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	{
 		case TH_PF_420:
 			printf(" 4:2:0 video\n");
-			Y2RU_SetInputFormat(INPUT_YUV420_INDIV_8);
 			break;
 		case TH_PF_422:
 			printf(" 4:2:2 video\n");
-			Y2RU_SetInputFormat(INPUT_YUV422_INDIV_8);
 			break;
 		case TH_PF_444:
 			puts("YUV444 is not supported by Y2R");
@@ -63,15 +63,6 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 			printf(" video\n	(UNKNOWN Chroma sampling!)\n");
 			return 2;
 	}
-
-	Y2RU_SetOutputFormat(OUTPUT_RGB_24);
-	Y2RU_SetRotation(ROTATION_NONE);
-	Y2RU_SetBlockAlignment(BLOCK_8_BY_8);
-	Y2RU_SetTransferEndInterrupt(true);
-	Y2RU_SetInputLineWidth(info->width);
-	Y2RU_SetInputLines(info->height);
-	Y2RU_SetStandardCoefficient(COEFFICIENT_ITU_R_BT_601_SCALING);
-	Y2RU_SetAlpha(0xFF);
 
 	image->tex = malloc(sizeof(C3D_Tex));
 	C3D_TexInit(image->tex, nearestPo2(info->width), nearestPo2(info->height), GPU_RGB8);
@@ -118,6 +109,27 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 	while (is_busy)
 		Y2RU_IsBusyConversion(&is_busy);
 
+	switch(info->fmt)
+	{
+		case TH_PF_420:
+			Y2RU_SetInputFormat(INPUT_YUV420_INDIV_8);
+			break;
+		case TH_PF_422:
+			Y2RU_SetInputFormat(INPUT_YUV422_INDIV_8);
+			break;
+		default:
+			break;
+	}
+
+	Y2RU_SetOutputFormat(OUTPUT_RGB_24);
+	Y2RU_SetRotation(ROTATION_NONE);
+	Y2RU_SetBlockAlignment(BLOCK_8_BY_8);
+	Y2RU_SetTransferEndInterrupt(true);
+	Y2RU_SetInputLineWidth(info->width);
+	Y2RU_SetInputLines(info->height);
+	Y2RU_SetStandardCoefficient(COEFFICIENT_ITU_R_BT_601_SCALING);
+	Y2RU_SetAlpha(0xFF);
+
 	//Y2RU_SetSendingY(ybr[0].data, ybr[0].stride * ybr[0].height, ybr[0].width, ybr[0].stride - ybr[0].width);
 	//Y2RU_SetSendingU(ybr[1].data, ybr[1].stride * ybr[1].height, ybr[1].width, ybr[1].stride - ybr[1].width);
 	//Y2RU_SetSendingV(ybr[2].data, ybr[2].stride * ybr[2].height, ybr[2].width, ybr[2].stride - ybr[2].width);
@@ -128,4 +140,9 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 
 	Y2RU_SetReceiving(frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt), info->width * 8 * fmtGetBPP(frame->tex->fmt), (nearestPo2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
 	Y2RU_StartConversion();
+
+	Y2RU_GetTransferEndEvent(&y2rEvent);
+	if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out"); // DEBUG
+	//svcWaitSynchronization(y2rEvent, -1);
+	//svcWaitSynchronization(y2rEvent, 6e7);
 }
