@@ -24,7 +24,7 @@ static size_t buffSize = 8 * 4096;
 static ndspWaveBuf waveBuf[WAVEBUFCOUNT];
 int16_t* audioBuffer;
 LightEvent soundEvent;
-_LOCK_T oggMutex;
+_LOCK_T frameMutex;
 int ready = 0;
 float scaleframe = 1.0f;
 
@@ -96,11 +96,12 @@ void videoDecode_thread(void* nul) {
 		}
 
 		if (THEORA_HasVideo(&vidCtx)) {
-			//__lock_acquire(oggMutex);
 			th_ycbcr_buffer ybr;
-			if (THEORA_getvideo(&vidCtx, ybr))
+			if (THEORA_getvideo(&vidCtx, ybr)) {
+				__lock_acquire(frameMutex);
 				frameWrite(&frame, vinfo, ybr);
-			//__lock_release(oggMutex);
+				__lock_release(frameMutex);
+			}
 		}
 	}
 
@@ -345,8 +346,11 @@ int main(int argc, char* argv[]) {
 		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 			C2D_TargetClear(top, C2D_Color32(20, 29, 31, 255));
 			C2D_SceneBegin(top);
-			if (isplaying && THEORA_HasVideo(&vidCtx))
+			if (isplaying && THEORA_HasVideo(&vidCtx)) {
+				__lock_acquire(frameMutex);
 				C2D_DrawImageAt(frame, 0, 0, 0.5f, NULL, scaleframe, scaleframe);
+				__lock_release(frameMutex);
+			}
 		C3D_FrameEnd(0);
 	}
 
