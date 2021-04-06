@@ -15,16 +15,15 @@
 #define WAVEBUFCOUNT 3
 #define	MAX_LIST     28
 
-C2D_Image frame;
 C3D_RenderTarget* top;
 THEORA_Context vidCtx;
+TH3DS_Frame frame;
 Thread vthread = NULL;
 Thread athread = NULL;
 static size_t buffSize = 8 * 4096;
 static ndspWaveBuf waveBuf[WAVEBUFCOUNT];
 int16_t* audioBuffer;
 LightEvent soundEvent;
-_LOCK_T frameMutex;
 int ready = 0;
 float scaleframe = 1.0f;
 
@@ -34,19 +33,6 @@ static inline float getFrameScalef(float wi, float hi, float targetw, float targ
 	float w = targetw/wi;
 	float h = targeth/hi;
 	return fabs(w) > fabs(h) ? h : w;
-}
-
-static inline bool drawFrameImageCentered(C2D_Image img, float x, float y, float depth,
-	const C2D_ImageTint* tint C2D_OPTIONAL(nullptr),
-	float scaleX C2D_OPTIONAL(1.0f), float scaleY C2D_OPTIONAL(1.0f))
-{
-	C2D_DrawParams params =
-	{
-		{ x, y, scaleX*img.subtex->width, scaleY*img.subtex->height },
-		{ (scaleX*img.subtex->width)/2.0f, (scaleY*img.subtex->height)/2.0f },
-		depth, 0.0f
-	};
-	return C2D_DrawImage(img, &params, tint);
 }
 
 void audioInit(THEORA_audioinfo* ainfo) {
@@ -111,9 +97,7 @@ void videoDecode_thread(void* nul) {
 		if (THEORA_HasVideo(&vidCtx)) {
 			th_ycbcr_buffer ybr;
 			if (THEORA_getvideo(&vidCtx, ybr)) {
-				__lock_acquire(frameMutex);
 				frameWrite(&frame, vinfo, ybr);
-				__lock_release(frameMutex);
 			}
 		}
 	}
@@ -354,18 +338,17 @@ int main(int argc, char* argv[]) {
 					scaleframe = 1.0f;
 				}
 			}
+
+			if (kDown & KEY_X) {
+				printf("frames: %d dropped: %d\n", vidCtx.frames, vidCtx.dropped);
+			}
 		}
 
 		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 			C2D_TargetClear(top, C2D_Color32(20, 29, 31, 255));
 			C2D_SceneBegin(top);
-			if (isplaying && THEORA_HasVideo(&vidCtx)) {
-				THEORA_videoinfo* vinfo = THEORA_vidinfo(&vidCtx);
-
-				__lock_acquire(frameMutex);
-				drawFrameImageCentered(frame, SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 0.5f, NULL, scaleframe, scaleframe);
-				__lock_release(frameMutex);
-			}
+			if (isplaying && THEORA_HasVideo(&vidCtx))
+				frameDrawAtCentered(&frame, SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 0.5f, scaleframe, scaleframe);
 		C3D_FrameEnd(0);
 	}
 

@@ -28,8 +28,8 @@ static inline size_t fmtGetBPP(GPU_TEXCOLOR fmt)
 	}
 }
 
-int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
-	if (!image || !info || y2rInit())
+int frameInit(TH3DS_Frame* vframe, THEORA_videoinfo* info) {
+	if (!vframe || !info || y2rInit())
 		return 1;
 
 	switch(info->colorspace) {
@@ -64,9 +64,13 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 			return 2;
 	}
 
-	image->tex = malloc(sizeof(C3D_Tex));
-	C3D_TexInit(image->tex, nearestPo2(info->width), nearestPo2(info->height), GPU_RGB8);
-	memset(image->tex->data, 0, image->tex->size);
+	vframe->curbuf = false;
+
+	for (int i = 0; i < 2; i++) {
+		C3D_Tex* curtex = &vframe->buff[i];
+		C3D_TexInit(curtex, nearestPo2(info->width), nearestPo2(info->height), GPU_RGB8);
+		memset(curtex->data, 0, curtex->size);
+	}
 
 	Tex3DS_SubTexture* subtex = malloc(sizeof(Tex3DS_SubTexture));
 
@@ -76,33 +80,37 @@ int frameInit(C2D_Image* image, THEORA_videoinfo* info) {
 	subtex->top = 1.0f;
 	subtex->right = (float)info->width/nearestPo2(info->width);
 	subtex->bottom = 1.0-((float)info->height/nearestPo2(info->height));
-	image->subtex = subtex;
+
+	vframe->img.tex = &vframe->buff[vframe->curbuf];
+	vframe->img.subtex = subtex;
 
 	return 0;
 }
 
-void frameDelete(C2D_Image* image) {
-	if (!image)
+void frameDelete(TH3DS_Frame* vframe) {
+	if (!vframe)
 		return;
 
 	Y2RU_StopConversion();
 
-	if (image->tex) {
-		C3D_TexDelete(image->tex);
-		free(image->tex);
+	if (vframe->buff[0].data) {
+		C3D_TexDelete(&vframe->buff[0]);
+		C3D_TexDelete(&vframe->buff[1]);
+		//free(image->tex);
 	}
 
-	if (image->subtex)
-		free((void*)image->subtex);
+	if (vframe->img.subtex)
+		free((void*)vframe->img.subtex);
 
 	y2rExit();
 }
 
-void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
-	if (!frame || !info)
+void frameWrite(TH3DS_Frame* vframe, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
+	if (!vframe || !info)
 		return;
 
 	bool is_busy = true;
+	C3D_Tex* wframe = &vframe->buff[!vframe->curbuf];
 
 	Y2RU_StopConversion();
 
@@ -138,11 +146,25 @@ void frameWrite(C2D_Image* frame, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
 	Y2RU_SetSendingU(ybr[1].data, (info->width/2) * (info->height/2), info->width/2, ybr[1].stride - (info->width >> 1));
 	Y2RU_SetSendingV(ybr[2].data, (info->width/2) * (info->height/2), info->width/2, ybr[2].stride - (info->width >> 1));
 
-	Y2RU_SetReceiving(frame->tex->data, info->width * info->height * fmtGetBPP(frame->tex->fmt), info->width * 8 * fmtGetBPP(frame->tex->fmt), (nearestPo2(info->width) - info->width) * 8 * fmtGetBPP(frame->tex->fmt));
+	Y2RU_SetReceiving(wframe->data, info->width * info->height * fmtGetBPP(wframe->fmt), info->width * 8 * fmtGetBPP(wframe->fmt), (nearestPo2(info->width) - info->width) * 8 * fmtGetBPP(wframe->fmt));
 	Y2RU_StartConversion();
 
+	// Wait untill we are ready to present the frame
 	Y2RU_GetTransferEndEvent(&y2rEvent);
 	if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out"); // DEBUG
 	//svcWaitSynchronization(y2rEvent, -1);
 	//svcWaitSynchronization(y2rEvent, 6e7);
+	vframe->curbuf = !vframe->curbuf;
+	vframe->img.tex = &vframe->buff[vframe->curbuf];
+}
+
+bool frameDrawAtCentered(TH3DS_Frame* vframe, float x, float y, float depth, float scaleX, float scaleY) {
+	C2D_Image img = vframe->img;
+	C2D_DrawParams params =
+	{
+		{ x, y, scaleX*img.subtex->width, scaleY*img.subtex->height },
+		{ (scaleX*img.subtex->width)/2.0f, (scaleY*img.subtex->height)/2.0f },
+		depth, 0.0f
+	};
+	return C2D_DrawImage(img, &params, NULL);
 }
