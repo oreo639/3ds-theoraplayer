@@ -70,10 +70,19 @@ void videoDecode_thread(void* nul) {
 		scaleframe = getFrameScalef(vinfo->width, vinfo->height, SCREEN_WIDTH, SCREEN_HEIGHT);
 	}
 
+	isplaying = true;
+
 	while (isplaying)
 	{
 		if (THEORA_eos(&vidCtx))
 			break;
+
+		if (THEORA_HasVideo(&vidCtx)) {
+			th_ycbcr_buffer ybr;
+			if (THEORA_getvideo(&vidCtx, ybr)) {
+				frameWrite(&frame, vinfo, ybr);
+			}
+		}
 
 		if (THEORA_HasAudio(&vidCtx)) {
 			for (int cur_wvbuf = 0; cur_wvbuf < WAVEBUFCOUNT; cur_wvbuf++) {
@@ -91,13 +100,6 @@ void videoDecode_thread(void* nul) {
 					ndspChnWaveBufAdd(0, buf);
 				}
 				DSP_FlushDataCache(buf->data_pcm16, buffSize * sizeof(int16_t));
-			}
-		}
-
-		if (THEORA_HasVideo(&vidCtx)) {
-			th_ycbcr_buffer ybr;
-			if (THEORA_getvideo(&vidCtx, ybr)) {
-				frameWrite(&frame, vinfo, ybr);
 			}
 		}
 	}
@@ -215,7 +217,6 @@ static void changeFile(const char* filepath) {
 	}
 
 	printf("Theora Create sucessful.\n");
-	isplaying = true;
 
 	s32 prio;
 	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
