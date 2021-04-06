@@ -64,8 +64,6 @@ int frameInit(TH3DS_Frame* vframe, THEORA_videoinfo* info) {
 			return 2;
 	}
 
-	vframe->curbuf = false;
-
 	for (int i = 0; i < 2; i++) {
 		C3D_Tex* curtex = &vframe->buff[i];
 		C3D_TexInit(curtex, nearestPo2(info->width), nearestPo2(info->height), GPU_RGB8);
@@ -81,6 +79,7 @@ int frameInit(TH3DS_Frame* vframe, THEORA_videoinfo* info) {
 	subtex->right = (float)info->width/nearestPo2(info->width);
 	subtex->bottom = 1.0-((float)info->height/nearestPo2(info->height));
 
+	vframe->curbuf = false;
 	vframe->img.tex = &vframe->buff[vframe->curbuf];
 	vframe->img.subtex = subtex;
 
@@ -110,7 +109,8 @@ void frameWrite(TH3DS_Frame* vframe, THEORA_videoinfo* info, th_ycbcr_buffer ybr
 		return;
 
 	bool is_busy = true;
-	C3D_Tex* wframe = &vframe->buff[!vframe->curbuf];
+	bool drawbuf = !vframe->curbuf;
+	C3D_Tex* wframe = &vframe->buff[drawbuf];
 
 	Y2RU_StopConversion();
 
@@ -154,8 +154,8 @@ void frameWrite(TH3DS_Frame* vframe, THEORA_videoinfo* info, th_ycbcr_buffer ybr
 	if(svcWaitSynchronization(y2rEvent, 6e7)) puts("Y2R timed out"); // DEBUG
 	//svcWaitSynchronization(y2rEvent, -1);
 	//svcWaitSynchronization(y2rEvent, 6e7);
-	vframe->curbuf = !vframe->curbuf;
-	vframe->img.tex = &vframe->buff[vframe->curbuf];
+	vframe->curbuf = drawbuf;
+	vframe->img.tex = wframe;
 }
 
 bool frameDrawAtCentered(TH3DS_Frame* vframe, float x, float y, float depth, float scaleX, float scaleY) {
