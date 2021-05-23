@@ -44,7 +44,7 @@ GRAPHICS	:=	gfx
 # options for code generation
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
-CFLAGS	:=	-Wall -Wextra -mword-relocations \
+CFLAGS	:=	-g -Wall -Wextra -mword-relocations \
 			-fomit-frame-pointer -ffunction-sections \
 			-Wno-unused-parameter \
 			$(ARCH)
@@ -52,7 +52,7 @@ CFLAGS	:=	-Wall -Wextra -mword-relocations \
 ifdef RELEASE
 	CFLAGS += -O3
 else
-	CFLAGS += -Og -g
+	CFLAGS += -Og
 endif
 
 CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DARM_ASM_CLIP15=1
@@ -60,9 +60,9 @@ CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DARM_ASM_CLIP15=1
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 
 ASFLAGS	:=	-g $(ARCH)
-LDFLAGS	=	-specs=3dsx.specs $(ARCH) -Wl,-Map,$(notdir $*.map)
+LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -ltheoradec -lvorbisidec -logg -lcitro2d -lcitro3d -lctru -lz -lm
+LIBS	:= -ltheoradec -lvorbisidec -logg -lcitro2d -lcitro3d -lctru -lm
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
