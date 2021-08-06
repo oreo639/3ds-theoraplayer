@@ -67,6 +67,7 @@ int frameInit(TH3DS_Frame* vframe, THEORA_videoinfo* info) {
 	for (int i = 0; i < 2; i++) {
 		C3D_Tex* curtex = &vframe->buff[i];
 		C3D_TexInit(curtex, nearestPo2(info->width), nearestPo2(info->height), GPU_RGB8);
+		C3D_TexSetFilter(curtex, GPU_LINEAR, GPU_LINEAR);
 		memset(curtex->data, 0, curtex->size);
 	}
 
@@ -105,12 +106,17 @@ void frameDelete(TH3DS_Frame* vframe) {
 }
 
 void frameWrite(TH3DS_Frame* vframe, THEORA_videoinfo* info, th_ycbcr_buffer ybr) {
-	if (!vframe || !info)
-		return;
-
 	bool is_busy = true;
 	bool drawbuf = !vframe->curbuf;
 	C3D_Tex* wframe = &vframe->buff[drawbuf];
+
+	if (!vframe || !info)
+		return;
+
+	if (!ybr[0].data || !ybr[1].data || !ybr[2].data) {
+		printf("Error: ybr data is null\n");
+		return;
+	}
 
 	Y2RU_StopConversion();
 

@@ -373,68 +373,94 @@ double get_time(THEORA_Context *ctx)
 
 int THEORAi_readvideo(THEORA_Context *ctx)
 {
+	//static int droppedinrow = 0;
 	ogg_int64_t granulepos = 0;
 	ogg_packet packet;
 	int retval = 0;
 	int rc;
 
-	while (!retval) {
-		// Keep trying to get a usable packet
-		if (!oggGetNextPacket(ctx, &ctx->tstream, &packet)) {
-			// ... unless there's nothing left for us to read.
-			if (retval) {
-				break;
-			}
-			return 0;
-		}
-		/*HACK: This should be set after a seek or a gap, but we might not have
-		 a granulepos for the first packet (we only have them for the last
-		 packet on a page), so we just set it as often as we get it.
-		To do this right, we should back-track from the last packet on the
-		 page and compute the correct granulepos for the first packet after
-		 a seek or a gap.*/
-		if(ctx->pp_inc) {
-			ctx->pp_level += ctx->pp_inc;
-			th_decode_ctl(ctx->tdec, TH_DECCTL_SET_PPLEVEL, &ctx->pp_level, sizeof(ctx->pp_level));
-			ctx->pp_inc=0;
-		}
-		if((rc = th_decode_packetin(ctx->tdec, &packet, &granulepos)) == 0) {
-			ctx->videobuf_time=th_granule_time(ctx->tdec, granulepos);
-			ctx->frames++;
+	// Keep trying to get a usable packet
+	if (!oggGetNextPacket(ctx, &ctx->tstream, &packet)) {
+		// ... unless there's nothing left for us to read.
+		return 0;
+	}
 
-			/* is it already too old to be useful?	This is only actually
-			 useful cosmetically after a SIGSTOP.	Note that we have to
-			 decode the frame even if we don't show it (for now) due to
-			 keyframing.	Soon enough libtheora will be able to deal
-			 with non-keyframe seeks.	*/
+	if(ctx->pp_inc) {
+		ctx->pp_level += ctx->pp_inc;
+		th_decode_ctl(ctx->tdec, TH_DECCTL_SET_PPLEVEL, &ctx->pp_level, sizeof(ctx->pp_level));
+		ctx->pp_inc=0;
+	}
 
-			if(ctx->videobuf_time>=get_time(ctx))
+	/*HACK: This should be set after a seek or a gap, but we might not have
+	 a granulepos for the first packet (we only have them for the last
+	 packet on a page), so we just set it as often as we get it.
+	To do this right, we should back-track from the last packet on the
+	 page and compute the correct granulepos for the first packet after
+	 a seek or a gap.*/
+	if(packet.granulepos>=0) {
+		th_decode_ctl(ctx->tdec,TH_DECCTL_SET_GRANPOS,&packet.granulepos, sizeof(packet.granulepos));
+	}
+	if((rc = th_decode_packetin(ctx->tdec, &packet, &granulepos)) == 0) {
+		ctx->videobuf_time=th_granule_time(ctx->tdec, granulepos);
+		ctx->frames++;
+
+		/*{
+			double timebase = (ctx->videobuf_time);
+			int hundredths  = timebase*100-(long)timebase*100;
+			int seconds     = (long)timebase%60;
+			int minutes     = ((long)timebase/60)%60;
+			int hours       = (long)timebase/3600;
+
+			fprintf(stderr,"   Granule time: %d:%02d:%02d.%02d\n",
+				hours,minutes,seconds,hundredths);
+		}*/
+
+		/* is it already too old to be useful?	This is only actually
+		 useful cosmetically after a SIGSTOP.	Note that we have to
+		 decode the frame even if we don't show it (for now) due to
+		 keyframing.	Soon enough libtheora will be able to deal
+		 with non-keyframe seeks.	*/
+
+		if(ctx->videobuf_time<get_time(ctx)) {
+			/*If we are too slow, reduce the pp level.*/
+			ctx->pp_inc=ctx->pp_level>0?-1:0;
+			ctx->dropped++;
+			//printf("Frame dropped\n");
+			/*if (droppedinrow < ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator) {
 				retval = 1;
-			else{
-				/*If we are too slow, reduce the pp level.*/
-				ctx->pp_inc=ctx->pp_level>0?-1:0;
-				ctx->dropped++;
-				//printf("Frame dropped\n");
-			}
-		}
-		else if (rc != TH_DUPFRAME)
-		{
-			return 0; // Why did we get here...?
+				droppedinrow = 0;
+			} else {
+				droppedinrow++;
+			}*/
+		} else {
+			retval = 1;
+			//droppedinrow = 0;
 		}
 	}
+	else if (rc != TH_DUPFRAME)
+	{
+		retval = 0;
+	}
+
+	//printf("finish\n");
 
 	return retval;
 }
 
 int THEORAi_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
-	if (ctx->videobuf_time<=get_time(ctx)) {
-		if (th_decode_ycbcr_out(ctx->tdec, ybr) != 0)
-			return 0; // Uhh?!
-		return 1;
-	} else {
+/*
+	int retval = 0;
+
+	while (!retval) {
+		if (ctx->videobuf_time<=get_time(ctx)) {
+			if (th_decode_ycbcr_out(ctx->tdec, ybr) != 0)
+				return 0; // Uhh?!
+			retval = 1;
+		}
+
 		double tdiff;
 		tdiff=ctx->videobuf_time-get_time(ctx);
-		/*If we have lots of extra time, increase the post-processing level.*/
+		//If we have lots of extra time, increase the post-processing level.
 		if(tdiff>ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator) {
 			ctx->pp_inc=ctx->pp_level<ctx->pp_level_max?1:0;
 		}
@@ -442,19 +468,50 @@ int THEORAi_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 			ctx->pp_inc=ctx->pp_level>0?-1:0;
 		}
 	}
+
+	return retval;
+*/
+
+	double tdiff;
+	tdiff=ctx->videobuf_time-get_time(ctx);
+	if(tdiff>ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator) {
+		ctx->pp_inc=ctx->pp_level<ctx->pp_level_max?1:0;
+	}
+	else if(tdiff<ctx->tinfo.fps_denominator*0.05/ctx->tinfo.fps_numerator) {
+		ctx->pp_inc=ctx->pp_level>0?-1:0;
+	}
+
+	if (ctx->videobuf_time<=get_time(ctx)) {
+		if (th_decode_ycbcr_out(ctx->tdec, ybr) != 0)
+			return -1; // Uhh?!
+		return 1;
+	}
+
 	return 0;
 }
 
 int THEORA_getvideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
-	int ret = 0;
+	if (ctx->vstate == 0)
+		if (THEORAi_readvideo(ctx))
+			ctx->vstate = 1;
 
-	if (!ctx->frames)
-		THEORAi_readvideo(ctx);
+	if (ctx->vstate == 1) {
+		int ret = THEORAi_decodevideo(ctx, ybr);
 
-	if ((ret = THEORAi_decodevideo(ctx, ybr)))
-		THEORAi_readvideo(ctx);
+		if (ret != 0)
+			ctx->vstate = 0;
 
-	return ret;
+		return !!ret;
+	}
+
+	return 0;
+
+/*
+	if (THEORAi_readvideo(ctx))
+		return THEORAi_decodevideo(ctx, ybr);
+
+	return 0;
+*/
 }
 
 long ov_read(THEORA_Context *ctx, char *buffer, int bytes_req, int *bitstream) {
