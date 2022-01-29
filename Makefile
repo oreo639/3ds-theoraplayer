@@ -45,7 +45,7 @@ GRAPHICS	:=	gfx
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 CFLAGS	:=	-g -Wall -Wextra -mword-relocations \
-			-fomit-frame-pointer -ffunction-sections \
+			-ffunction-sections \
 			-Wno-unused-parameter \
 			$(ARCH)
 
@@ -55,7 +55,7 @@ else
 	CFLAGS += -Og
 endif
 
-CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS -DARM_ASM_CLIP15=1
+CFLAGS	+=	$(INCLUDE) -D__3DS__ -DARM_ASM_CLIP15=1
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 
