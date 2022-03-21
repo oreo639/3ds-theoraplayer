@@ -334,7 +334,7 @@ void THEORA_reset(THEORA_Context *ctx)
 
 /* get relative time since beginning playback, compensating for A/V
    drift */
-double get_time(THEORA_Context *ctx)
+static double get_time(THEORA_Context *ctx)
 {
 	static ogg_int64_t last = 0;
 	static ogg_int64_t up = 0;
@@ -514,7 +514,7 @@ int THEORA_getvideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 */
 }
 
-long ov_read(THEORA_Context *ctx, char *buffer, int bytes_req, int *bitstream) {
+static long ov_read(THEORA_Context *ctx, char *buffer, int bytes_req, int *bitstream) {
 	int i,j;
 
 	ogg_int32_t **pcm;
