@@ -422,21 +422,12 @@ int THEORAi_readvideo(THEORA_Context *ctx)
 		 decode the frame even if we don't show it (for now) due to
 		 keyframing.	Soon enough libtheora will be able to deal
 		 with non-keyframe seeks.	*/
-
 		if(ctx->videobuf_time<get_time(ctx)) {
 			/*If we are too slow, reduce the pp level.*/
 			ctx->pp_inc=ctx->pp_level>0?-1:0;
 			ctx->dropped++;
-			//printf("Frame dropped\n");
-			/*if (droppedinrow < ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator) {
-				retval = 1;
-				droppedinrow = 0;
-			} else {
-				droppedinrow++;
-			}*/
 		} else {
 			retval = 1;
-			//droppedinrow = 0;
 		}
 	}
 	else if (rc != TH_DUPFRAME)
@@ -444,38 +435,14 @@ int THEORAi_readvideo(THEORA_Context *ctx)
 		retval = 0;
 	}
 
-	//printf("finish\n");
-
 	return retval;
 }
 
 int THEORAi_decodevideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
-/*
-	int retval = 0;
-
-	while (!retval) {
-		if (ctx->videobuf_time<=get_time(ctx)) {
-			if (th_decode_ycbcr_out(ctx->tdec, ybr) != 0)
-				return 0; // Uhh?!
-			retval = 1;
-		}
-
-		double tdiff;
-		tdiff=ctx->videobuf_time-get_time(ctx);
-		//If we have lots of extra time, increase the post-processing level.
-		if(tdiff>ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator) {
-			ctx->pp_inc=ctx->pp_level<ctx->pp_level_max?1:0;
-		}
-		else if(tdiff<ctx->tinfo.fps_denominator*0.05/ctx->tinfo.fps_numerator) {
-			ctx->pp_inc=ctx->pp_level>0?-1:0;
-		}
-	}
-
-	return retval;
-*/
-
 	double tdiff;
 	tdiff=ctx->videobuf_time-get_time(ctx);
+
+	//If we have lots of extra time, increase the post-processing level.
 	if(tdiff>ctx->tinfo.fps_denominator*0.25/ctx->tinfo.fps_numerator) {
 		ctx->pp_inc=ctx->pp_level<ctx->pp_level_max?1:0;
 	}
@@ -507,13 +474,6 @@ int THEORA_getvideo(THEORA_Context *ctx, th_ycbcr_buffer ybr) {
 	}
 
 	return 0;
-
-/*
-	if (THEORAi_readvideo(ctx))
-		return THEORAi_decodevideo(ctx, ybr);
-
-	return 0;
-*/
 }
 
 static long ov_read(THEORA_Context *ctx, char *buffer, int bytes_req, int *bitstream) {
@@ -546,7 +506,6 @@ static long ov_read(THEORA_Context *ctx, char *buffer, int bytes_req, int *bitst
 	if(samples>0){
 
 		/* yay! proceed to pack data into the byte buffer */
-
 		long channels=ctx->vinfo.channels;
 
 		if(samples>(bytes_req/(2*channels)))
