@@ -7,16 +7,14 @@
 
 Handle y2rEvent;
 
-static inline u32 nearestPo2(u32 x)
-{
-    if (x <= 2)
-        return x;
+static inline unsigned nearestPo2(unsigned x) {
+	if (x <= 1)
+		return 1;
 
-    return 1u << (32 - __builtin_clz(x - 1));
+	return 1u << (32 - __builtin_clz(x - 1));
 }
 
-static inline size_t fmtGetBPP(GPU_TEXCOLOR fmt)
-{
+static inline size_t fmtGetBPP(GPU_TEXCOLOR fmt) {
 	switch (fmt)
 	{
 		case GPU_RGBA8:
