@@ -7,7 +7,7 @@
 
 Handle y2rEvent;
 
-static inline unsigned nearestPo2(unsigned x) {
+static inline unsigned bitCeil(unsigned x) {
 	return x <= 1 ? 1 : (1u << (32 - __builtin_clz(x - 1)));
 }
 
@@ -61,7 +61,7 @@ int frameInit(TH3DS_Frame* vframe, THEORA_videoinfo* info) {
 
 	for (int i = 0; i < 2; i++) {
 		C3D_Tex* curtex = &vframe->buff[i];
-		C3D_TexInit(curtex, nearestPo2(info->width), nearestPo2(info->height), GPU_RGB8);
+		C3D_TexInit(curtex, bitCeil(info->width), bitCeil(info->height), GPU_RGB8);
 		C3D_TexSetFilter(curtex, GPU_LINEAR, GPU_LINEAR);
 		memset(curtex->data, 0, curtex->size);
 	}
@@ -72,8 +72,8 @@ int frameInit(TH3DS_Frame* vframe, THEORA_videoinfo* info) {
 	subtex->height = info->height;
 	subtex->left = 0.0f;
 	subtex->top = 1.0f;
-	subtex->right = (float)info->width/nearestPo2(info->width);
-	subtex->bottom = 1.0-((float)info->height/nearestPo2(info->height));
+	subtex->right = (float)info->width/bitCeil(info->width);
+	subtex->bottom = 1.0-((float)info->height/bitCeil(info->height));
 
 	vframe->curbuf = false;
 	vframe->img.tex = &vframe->buff[vframe->curbuf];
@@ -147,7 +147,7 @@ void frameWrite(TH3DS_Frame* vframe, THEORA_videoinfo* info, th_ycbcr_buffer ybr
 	Y2RU_SetSendingU(ybr[1].data, (info->width/2) * (info->height/2), info->width/2, ybr[1].stride - (info->width >> 1));
 	Y2RU_SetSendingV(ybr[2].data, (info->width/2) * (info->height/2), info->width/2, ybr[2].stride - (info->width >> 1));
 
-	Y2RU_SetReceiving(wframe->data, info->width * info->height * fmtGetBPP(wframe->fmt), info->width * 8 * fmtGetBPP(wframe->fmt), (nearestPo2(info->width) - info->width) * 8 * fmtGetBPP(wframe->fmt));
+	Y2RU_SetReceiving(wframe->data, info->width * info->height * fmtGetBPP(wframe->fmt), info->width * 8 * fmtGetBPP(wframe->fmt), (bitCeil(info->width) - info->width) * 8 * fmtGetBPP(wframe->fmt));
 	Y2RU_StartConversion();
 
 	// Wait untill we are ready to present the frame
