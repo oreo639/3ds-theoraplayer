@@ -8,10 +8,7 @@
 Handle y2rEvent;
 
 static inline unsigned nearestPo2(unsigned x) {
-	if (x <= 1)
-		return 1;
-
-	return 1u << (32 - __builtin_clz(x - 1));
+	return x <= 1 ? 1 : (1u << (32 - __builtin_clz(x - 1)));
 }
 
 static inline size_t fmtGetBPP(GPU_TEXCOLOR fmt) {
